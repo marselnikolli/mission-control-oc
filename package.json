@@ -1,0 +1,13 @@
+{
+  "name": "openclaw-mission-control",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Live execution map for an OpenClaw multi-agent Gateway",
+  "scripts": {
+    "start": "node server.js",
+    "probe": "node server.js --probe"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "ws": "^8.18.0" }
+}
