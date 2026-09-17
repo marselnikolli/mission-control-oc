@@ -25,26 +25,55 @@ records an audit trail (`audit.js`), tracks tool usage and policy (`toolstats.js
 route, and [`plan.md`](plan.md) for the implementation history and what's deliberately deferred
 (a mission task queue, cancel/abort, and multi-Gateway support — all documented there with why).
 
-## Run it on the VPS
+## Installation
+
+### Prerequisites
+
+- **Node.js ≥ 20** (`node --version`) — nothing else is installed beyond the single runtime
+  dependency `ws`.
+- An **OpenClaw Gateway** already running and reachable over `ws://`. The default
+  `OPENCLAW_GATEWAY_URL` in `.env.example` points at the Gateway's default
+  `ws://127.0.0.1:18789`, so this flows if the Gateway runs on the same host.
+- Optional but recommended: the `openclaw` CLI available in `PATH` on the deploy host. It lets
+  the token resolver read the Gateway's existing token and, when none exists, provision one for
+  both sides automatically.
+
+### Steps
 
 ```bash
+# 1. Get the code (and change into the directory)
+git clone https://github.com/marselnikolli/mission-control-oc.git mission-control
 cd mission-control
-npm install            # one runtime dependency: ws
+
+# 2. Install dependencies (one runtime dependency: ws)
+npm install
+
+# 3. Create the config file from the example
 cp .env.example .env
-bin/mc-gateway-token.sh  # resolves OPENCLAW_GATEWAY_TOKEN from the Gateway, or generates one
-npm run probe          # first run: prints every Gateway event it receives
+
+# 4. Resolve/provision the shared Gateway token (idempotent; safe to run on every deploy)
+bin/mc-gateway-token.sh        # same as: npm run env:token
+
+# 5. First run only: check the event shapes against your OpenClaw version
+npm run probe                 # prints every Gateway event it receives, then exits
+
+# 6. Start Mission Control
 npm start
+
+# Expect: [gateway] live – scopes: operator.read, then open http://localhost:4400
 ```
 
-`bin/mc-gateway-token.sh` (also `npm run env:token`) looks for the shared token the Gateway is
-already configured with — `OPENCLAW_GATEWAY_TOKEN` in the environment, `openclaw gateway
-auth-token --show` (config token / SecretRefs), or `gateway.auth.token` in
+Step 4, `bin/mc-gateway-token.sh` (also `npm run env:token`), looks for the shared token the
+Gateway is already configured with — `OPENCLAW_GATEWAY_TOKEN` in the environment, `openclaw
+gateway auth-token --show` (config token / SecretRefs), or `gateway.auth.token` in
 `~/.openclaw/openclaw.json` — and writes whichever it finds into `.env`. If nothing is configured
 anywhere it runs `openclaw doctor --generate-gateway-token`, or as a last resort generates a
 random token itself (warning you to restart the Gateway so it binds it). It's idempotent: once
 `.env` has a token it does nothing, so it's safe to run on every deploy. `--force` regenerates.
 
-It listens on `127.0.0.1:4400` only. From your laptop:
+### Access it
+
+The server listens on `127.0.0.1:4400` only, so reach it over an SSH tunnel from your laptop:
 
 ```bash
 ssh -L 4400:127.0.0.1:4400 you@your-vps
