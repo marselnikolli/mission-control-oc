@@ -1,3 +1,7 @@
 node_modules/
 .env
 logs/*.jsonl
+data/
+mission-control-backup-*.tar.gz
+plan.md
+features.md

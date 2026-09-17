@@ -28,11 +28,12 @@
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); }
-  body { display: grid; grid-template-rows: auto 1fr; grid-template-columns: 1fr 340px; height: 100vh; overflow: hidden; }
+  body { display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: 1fr 340px; height: 100vh; overflow: hidden; }
   button { font: inherit; color: inherit; }
   button:focus-visible { outline: 2px solid var(--thinking); outline-offset: 2px; }
+  .node:focus-visible { outline: 2px solid var(--thinking); outline-offset: 2px; }
 
-  header { grid-column: 1 / -1; display: flex; align-items: center; gap: 18px; padding: 12px 20px; border-bottom: 1px solid var(--grid); min-width: 0; }
+  header { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 20px; border-bottom: 1px solid var(--grid); min-width: 0; }
   .mission { min-width: 0; flex: 1; }
   .mission small { display: block; color: var(--muted); font-size: 12px; }
   .mission h1 { margin: 2px 0 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -46,6 +47,12 @@
   .tbtn { background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
   .tbtn:hover { background: var(--card-hi); }
   .tbtn[disabled] { opacity: .45; cursor: default; }
+  .node .collapse-toggle { border: none; background: transparent; cursor: pointer; padding: 0 3px 0 0; font-size: 11px; color: var(--muted); line-height: 1; }
+  .node.search-dim { opacity: .22; }
+  #feedList li.search-hide { display: none; }
+  #searchInput { width: 100%; box-sizing: border-box; padding: 6px 9px; margin-bottom: 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 12.5px; }
+  #budgetBanner { grid-column: 1 / -1; padding: 6px 20px; font-size: 12.5px; background: var(--waiting); color: #1d1405; }
+  #budgetBanner.exceeded { background: var(--error); color: #fff; }
 
   #stage { position: relative; overflow: hidden; cursor: grab;
     background-image: radial-gradient(var(--grid) 1px, transparent 1px); background-size: 28px 28px; }
@@ -78,6 +85,19 @@
   .node[data-status="thinking"] { --glow: var(--thinking); }
   @keyframes breathe { 0%,100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 22px -4px var(--glow); } }
   .node.flash { box-shadow: 0 0 0 3px var(--flash, var(--done)); }
+  .node.overdue::after { content: "\23F1"; position: absolute; top: -8px; right: -8px; width: 18px; height: 18px;
+    border-radius: 50%; background: var(--error); color: #fff; font-size: 10px; line-height: 18px; text-align: center; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .overlay .box { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; width: min(420px, 90vw); max-height: 80vh; overflow-y: auto; }
+  .overlay h2 { margin: 0 0 12px; font-size: 15px; }
+  .overlay .row2 { display: flex; gap: 8px; margin-top: 12px; }
+  .overlay ul { list-style: none; margin: 0; padding: 0; }
+  .overlay li { padding: 8px 0; border-bottom: 1px solid var(--grid); font-size: 13px; cursor: pointer; }
+  .overlay li:hover { color: var(--thinking); }
+  .overlay textarea { width: 100%; min-height: 80px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; padding: 8px; resize: vertical; box-sizing: border-box; }
+  .tmpl { margin: 4px 4px 0 0; }
+  .overlay .box.wide { width: min(560px, 94vw); }
 
   .node.mission { border-radius: 999px; padding: 12px 22px; text-align: center; }
   .node.mission .name { text-transform: none; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -119,11 +139,16 @@
   #feed li[data-tone="result"] b { color: var(--done); }
   #feed li[data-tone="delegate"] b { color: var(--thinking); }
 
+  #auditList { list-style: none; margin: 0; padding: 0; }
+  #auditList li { display: grid; grid-template-columns: 58px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--grid); font-size: 12px; color: var(--muted); line-height: 1.4; }
+  #auditList time { font-family: var(--mono); font-size: 11.5px; color: var(--faint); padding-top: 1px; }
+
   @media (max-width: 860px) {
-    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr 38vh; }
+    body { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr 38vh; }
     aside { border-left: 0; border-top: 1px solid var(--grid); }
     #inspector { display: none; }
     .clock { display: none; }
+    header { gap: 8px 10px; padding: 10px 14px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .node { animation: none !important; transition: none; }
@@ -138,8 +163,19 @@
   </div>
   <span class="clock" id="clock">00:00</span>
   <button class="tbtn" id="replayBtn" disabled>Replay mission</button>
-  <span class="conn" id="conn" data-s="connecting"><i></i><span>Connecting</span></span>
+  <button class="tbtn" id="historyBtn">History</button>
+  <button class="tbtn" id="newTaskBtn" hidden>New Task</button>
+  <button class="tbtn" id="agentsBtn">Agents</button>
+  <button class="tbtn" id="toolsBtn">Tools</button>
+  <button class="tbtn" id="healthBtn">Health</button>
+  <button class="tbtn" id="demoBtn" title="Toggle demo data on/off">Demo</button>
+  <button class="tbtn" id="notifyBtn" title="Notify me about approvals, failures, and mission completion">🔔 Notifications off</button>
+  <button class="tbtn" id="themeBtn" title="Cycle theme: system / dark / light">Theme: system</button>
+  <span class="conn" id="conn" data-s="connecting" role="status" aria-live="polite"><i></i><span>Connecting</span></span>
+  <span class="conn" id="healthBadge" data-s="error" hidden role="status" aria-live="polite"><i></i><span>Mission Control unreachable</span></span>
+  <button class="tbtn" id="logoutBtn" hidden></button>
 </header>
+<div id="budgetBanner" hidden role="alert"></div>
 
 <main id="stage" aria-label="Agent execution map">
   <div id="world"><svg id="edges"></svg></div>
@@ -149,9 +185,47 @@
 
 <aside>
   <section id="inspector"><h2>Selected</h2><div id="inspBody" style="color:var(--muted);font-size:13px">Click any node to see what it's doing.</div></section>
-  <section id="feed"><h2>Activity</h2><ol id="feedList"></ol></section>
+  <section id="feed"><h2>Activity</h2><input id="searchInput" placeholder="Filter by agent, tool, status, text…" aria-label="Filter the map and activity feed"><ol id="feedList" role="log" aria-live="polite" aria-relevant="additions"></ol></section>
+  <section id="auditSection" hidden><h2>Audit Log</h2><ol id="auditList"></ol></section>
 </aside>
 
+<div class="overlay" id="historyOverlay" hidden>
+  <div class="box">
+    <h2>Mission History</h2>
+    <ul id="historyList"><li style="color:var(--muted)">Loading…</li></ul>
+    <div class="row2"><button class="tbtn" id="historyClose">Close</button></div>
+  </div>
+</div>
+<div class="overlay" id="taskOverlay" hidden>
+  <div class="box">
+    <h2>New Task</h2>
+    <div id="templateList"></div>
+    <textarea id="taskPrompt" placeholder="What should the orchestrator do?"></textarea>
+    <div id="taskErr" style="color:var(--error);font-size:13px;margin-top:6px;min-height:14px"></div>
+    <div class="row2"><button class="tbtn" id="taskSend">Send</button><button class="tbtn" id="taskClose">Cancel</button></div>
+  </div>
+</div>
+<div class="overlay" id="agentsOverlay" hidden>
+  <div class="box wide">
+    <h2>Agents</h2>
+    <div id="agentsList"></div>
+    <div class="row2"><button class="tbtn" id="agentsSpawn">Spawn helper agent</button><button class="tbtn" id="agentsClose">Close</button></div>
+  </div>
+</div>
+<div class="overlay" id="toolsOverlay" hidden>
+  <div class="box wide">
+    <h2>Tools</h2>
+    <div id="toolsList"></div>
+    <div class="row2"><button class="tbtn" id="toolsRefresh">Refresh</button><button class="tbtn" id="toolsClose">Close</button></div>
+  </div>
+</div>
+<div class="overlay" id="healthOverlay" hidden>
+  <div class="box">
+    <h2>Mission Control Health</h2>
+    <div id="healthBody" style="font-size:13px;color:var(--muted)"></div>
+    <div class="row2"><button class="tbtn" id="healthRefresh">Refresh</button><button class="tbtn" id="healthClose">Close</button></div>
+  </div>
+</div>
 <script>
 (() => {
   const EMOJI = { main: '🧠', sysadmin: '🛠️', devops: '🚀', security: '🛡️' };
@@ -164,11 +238,12 @@
   const stage = $('stage'), world = $('world'), svg = $('edges');
   const NS = 'http://www.w3.org/2000/svg';
 
-  const state = { nodes: new Map(), mission: { label: 'No active mission', startedAt: null }, approvals: false, mode: 'connecting', selected: null };
+  const state = { nodes: new Map(), mission: { label: 'No active mission', startedAt: null }, approvals: false, mode: 'connecting', selected: null, role: 'admin', collapsed: new Set() };
   const els = new Map();       // id -> { el, path }
   const particles = [];
   let view = { x: 0, y: 0, k: 1 }, userMoved = false;
   let recording = [], replaying = false, liveBuffer = [];
+  let liveES = null;
 
   // ---------- state ops ----------
   function seed(nodes) {
@@ -195,6 +270,11 @@
         if (!next.label && next.kind === 'agent') next.label = next.id.replace('agent:', '');
         state.nodes.set(next.id, next);
         if (prev && prev.status !== next.status && (next.status === 'done' || next.status === 'error')) flash(next.id, next.status);
+        if (!prev || prev.status !== next.status) {
+          if (next.kind === 'approval' && next.status === 'waiting') notifyIfEnabled('Approval needed', next.label || '');
+          else if (next.kind === 'agent' && next.status === 'error') notifyIfEnabled(`${next.label || 'Agent'} failed`, next.detail || '');
+          else if (next.kind === 'mission' && next.status === 'done') notifyIfEnabled('Mission complete', state.mission.label || '');
+        }
       } else if (o.op === 'remove') {
         state.nodes.delete(o.id);
       } else if (o.op === 'pulse') {
@@ -218,7 +298,7 @@
     }
     const order = id => { const a = id.replace('agent:', ''); const i = Object.keys(EMOJI).indexOf(a); return i < 0 ? 99 : i; };
     const measure = n => {
-      const all = kids.get(n.id) || [];
+      const all = state.collapsed.has(n.id) ? [] : (kids.get(n.id) || []);
       n._row = all.filter(k => k.kind === 'agent' || k.kind === 'subagent').sort((a, b) => order(a.id) - order(b.id));
       n._col = all.filter(k => k.kind === 'tool' || k.kind === 'approval');
       n._row.forEach(measure);
@@ -254,6 +334,13 @@
   }
 
   // ---------- rendering ----------
+  function ariaLabelFor(n) {
+    const status = STATUS_TEXT[n.status] || n.status;
+    if (n.kind === 'mission') return `Mission: ${n.label}, ${status}`;
+    if (n.kind === 'tool') return `Tool call: ${n.label}, ${status}`;
+    if (n.kind === 'approval') return `Approval needed: ${n.label}`;
+    return `${n.label || n.id} agent, ${status}${n.detail ? ', ' + n.detail : ''}`;
+  }
   function nodeHtml(n) {
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const st = `<div class="st"><i></i>${STATUS_TEXT[n.status] || n.status}</div>`;
@@ -268,22 +355,41 @@
     }
     const name = n.label || n.id;
     const emoji = EMOJI[name] || '🤖';
+    const kidCount = [...state.nodes.values()].filter(k => k.parent === n.id).length;
     const counts = [...state.nodes.values()].filter(k => k.parent === n.id && k.kind === 'tool').length;
-    return `<div class="row"><span>${emoji}</span><span class="name">${esc(name)}</span></div>${st}
+    const collapsed = state.collapsed.has(n.id);
+    const toggleLabel = `${collapsed ? 'Expand' : 'Collapse'} subtree`;
+    const toggle = kidCount ? `<button class="collapse-toggle" data-collapse="${esc(n.id)}" title="${toggleLabel}" aria-label="${toggleLabel}">${collapsed ? '▸' : '▾'}</button>` : '';
+    return `<div class="row">${toggle}<span>${emoji}</span><span class="name">${esc(name)}</span></div>${st}
       <div class="detail">${esc(n.detail || '')}&nbsp;</div>
-      <div class="meta">${esc(n.model || '')}${n.model && counts ? '  •  ' : ''}${counts ? counts + (counts === 1 ? ' tool call' : ' tool calls') : ''}</div>`;
+      <div class="meta">${esc(n.model || '')}${n.model && counts ? '  •  ' : ''}${counts ? counts + (counts === 1 ? ' tool call' : ' tool calls') : ''}${collapsed && kidCount ? ` · ${kidCount} hidden` : ''}</div>`;
+  }
+  function isHidden(n) {
+    let cur = n;
+    while (cur && cur.parent) {
+      if (state.collapsed.has(cur.parent)) return true;
+      cur = state.nodes.get(cur.parent);
+    }
+    return false;
   }
 
   function render() {
     layout();
     const seen = new Set();
     for (const n of state.nodes.values()) {
+      if (isHidden(n)) continue;
       seen.add(n.id);
       let rec = els.get(n.id);
       const [w, h] = sizeOf(n);
       if (!rec) {
         const el = document.createElement('div');
+        el.tabIndex = 0;
+        el.setAttribute('role', 'button');
         el.addEventListener('click', e => onNodeClick(n.id, e));
+        el.addEventListener('keydown', e => {
+          if (e.target !== el) return; // let a nested button's own Enter/Space handling win
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNodeClick(n.id, e); }
+        });
         const path = document.createElementNS(NS, 'path'); path.setAttribute('class', 'edge');
         svg.appendChild(path);
         const parent = n.parent && state.nodes.get(n.parent);
@@ -293,6 +399,7 @@
       }
       rec.el.className = `node ${n.kind}${state.selected === n.id ? ' selected' : ''}`;
       rec.el.dataset.status = n.status;
+      rec.el.setAttribute('aria-label', ariaLabelFor(n));
       rec.el.style.width = w + 'px';
       if (n.kind !== 'approval') rec.el.style.height = h + 'px'; else rec.el.style.minHeight = h + 'px';
       const html = nodeHtml(n);
@@ -305,6 +412,8 @@
     $('replayBtn').disabled = replaying || recording.length < 2;
     $('empty').hidden = state.mission.startedAt || [...state.nodes.values()].some(n => n.status !== 'idle');
     if (state.selected) inspect(state.selected);
+    if (!$('agentsOverlay').hidden) renderAgents();
+    applySearchFilter();
     if (!userMoved) fit();
   }
 
@@ -407,15 +516,21 @@
 
   // ---------- inspector, feed, clock ----------
   function onNodeClick(id, e) {
+    const toggle = e.target.closest('button[data-collapse]');
+    if (toggle) { toggleCollapse(toggle.dataset.collapse); return; }
     const act = e.target.closest('button[data-act]');
     if (act) { resolveApproval(id, act.dataset.act); return; }
     state.selected = state.selected === id ? null : id; render();
+  }
+  function toggleCollapse(id) {
+    if (state.collapsed.has(id)) state.collapsed.delete(id); else state.collapsed.add(id);
+    render();
   }
   function inspect(id) {
     const n = state.nodes.get(id);
     const body = $('inspBody');
     if (!n) { body.textContent = 'That node has left the map.'; return; }
-    const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const kids = [...state.nodes.values()].filter(k => k.parent === id);
     const rows = [
       ['Status', STATUS_TEXT[n.status] || n.status],
@@ -424,9 +539,31 @@
       n.parent && ['Reports to', esc(n.parent.replace(/^agent:/, ''))],
       kids.length && ['Children', kids.length],
     ].filter(Boolean);
+    const canFetchOutput = n.kind === 'tool' && n.sessionKey && n.callId;
+    const inputJson = n.kind === 'tool' && n.args ? JSON.stringify(n.args, null, 2) : null;
     body.innerHTML = `<div class="big">${esc(n.kind === 'tool' ? 'Tool call' : n.kind === 'mission' ? 'Mission' : n.label)}</div>
       ${n.kind === 'tool' || n.kind === 'mission' || n.kind === 'approval' ? `<div style="font-family:var(--mono);font-size:12px;margin-top:6px;overflow-wrap:anywhere">${esc(n.label)}</div>` : ''}
-      <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
+      <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+      ${inputJson ? `<div style="margin-top:10px;font-size:12px;color:var(--muted)">Original input</div><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--mono);font-size:11.5px;margin-top:4px;max-height:120px;overflow-y:auto">${esc(inputJson)}</pre>` : ''}
+      ${canFetchOutput ? '<button class="tbtn" id="toolOutputBtn" style="margin-top:10px">View full output</button><pre id="toolOutputBody" style="display:none;white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--mono);font-size:11.5px;margin-top:8px;max-height:180px;overflow-y:auto"></pre>' : ''}`;
+    if (canFetchOutput) $('toolOutputBtn').onclick = () => loadToolOutput(n.sessionKey, n.callId);
+  }
+  async function loadToolOutput(sessionKey, callId) {
+    const btn = $('toolOutputBtn'), out = $('toolOutputBody');
+    if (!btn || !out) return;
+    btn.disabled = true; btn.textContent = 'Loading…';
+    try {
+      const r = await fetch('/api/tool-output', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionKey, callId }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+      out.style.display = 'block';
+      out.textContent = typeof j.result === 'string' ? j.result : JSON.stringify(j.result, null, 2);
+      btn.hidden = true;
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'View full output';
+      out.style.display = 'block';
+      out.textContent = `Couldn't load output: ${err.message}`;
+    }
   }
   function addFeed(o) {
     const li = document.createElement('li');
@@ -489,6 +626,7 @@
     if (replaying && msg.type !== 'status') { liveBuffer.push(msg); return; }
     if (msg.type === 'snapshot') {
       seed(msg.nodes); state.mission = msg.mission || state.mission; state.approvals = !!msg.approvals;
+      state.taskSubmit = !!msg.taskSubmit; $('newTaskBtn').hidden = !state.taskSubmit;
       $('feedList').innerHTML = ''; (msg.log || []).forEach(addFeed);
       recording = [{ t: performance.now(), snapshot: snapshotNodes(), mission: { ...state.mission } }];
       setConnFromStatus(msg.status);
@@ -497,8 +635,138 @@
       applyOps(msg.ops);
     } else if (msg.type === 'status') {
       state.approvals = !!msg.approvals; setConnFromStatus(msg.status, msg.detail);
+      state.taskSubmit = !!msg.taskSubmit; $('newTaskBtn').hidden = !state.taskSubmit;
+    } else if (msg.type === 'budget') {
+      updateBudgetBanner(msg);
     }
   }
+
+  // ---------- budget banner ----------
+  const budgetAlerts = new Map(); // 'global' | 'agent:<id>' -> display text
+  function updateBudgetBanner(msg) {
+    const key = msg.scope === 'global' ? 'global' : `agent:${msg.agentId}`;
+    if (msg.status === 'ok') {
+      budgetAlerts.delete(key);
+    } else {
+      const who = msg.scope === 'global' ? 'Global' : msg.agentId;
+      const cost = msg.estCost ? ` (~$${msg.estCost.toFixed(2)})` : '';
+      budgetAlerts.set(key, { text: `${who} token budget ${msg.status}: ${msg.usedTokens}/${msg.limitTokens}${cost}`, status: msg.status });
+    }
+    const banner = $('budgetBanner');
+    if (!budgetAlerts.size) { banner.hidden = true; return; }
+    banner.hidden = false;
+    banner.classList.toggle('exceeded', [...budgetAlerts.values()].some(a => a.status === 'exceeded'));
+    banner.textContent = [...budgetAlerts.values()].map(a => a.text).join('   \u00b7   ');
+  }
+
+  // ---------- mission history ----------
+  function baseSkeleton() {
+    return [...state.nodes.values()].filter(n => n.kind === 'mission' || n.kind === 'agent').map(n => ({ ...n, status: 'idle', detail: '' }));
+  }
+  async function openHistory() {
+    $('historyOverlay').hidden = false;
+    const list = $('historyList');
+    list.innerHTML = '<li style="color:var(--muted)">Loading…</li>';
+    try {
+      const r = await fetch('/api/missions');
+      const j = await r.json();
+      if (!j.ok) throw new Error('failed to load');
+      const missions = j.missions.slice().reverse();
+      if (!missions.length) { list.innerHTML = '<li style="color:var(--muted)">No missions recorded yet.</li>'; return; }
+      list.innerHTML = '';
+      for (const m of missions) {
+        const li = document.createElement('li');
+        const d = new Date(m.startedAt);
+        li.textContent = `${d.toLocaleString()} — ${m.label} (${m.status})`;
+        li.onclick = () => { closeHistory(); viewHistory(m.id); };
+        list.appendChild(li);
+      }
+    } catch (err) {
+      list.innerHTML = `<li style="color:var(--error)">Couldn't load history: ${err.message}</li>`;
+    }
+  }
+  function closeHistory() { $('historyOverlay').hidden = true; }
+  async function viewHistory(id) {
+    if (replaying) return;
+    const base = baseSkeleton();
+    if (!base.length) return;
+    let ops;
+    try {
+      const r = await fetch(`/api/missions/${id}/ops`);
+      const j = await r.json();
+      if (!j.ok || !j.ops.length) return;
+      ops = j.ops;
+    } catch { return; }
+    replaying = true; liveBuffer = [];
+    const saved = { nodes: snapshotNodes(), mission: { ...state.mission } };
+    seed(base); state.mission = { label: 'Loading history…', startedAt: null };
+    $('feedList').innerHTML = '';
+    render();
+    let last = ops[0]._recordedAt || Date.now();
+    for (const op of ops) {
+      const at = op._recordedAt || last;
+      const delay = Math.min(900, Math.max(0, (at - last) / 3));
+      last = at;
+      await new Promise(r2 => setTimeout(r2, delay));
+      applyOps([op], { record: false });
+    }
+    await new Promise(r2 => setTimeout(r2, 800));
+    replaying = false;
+    seed(saved.nodes); state.mission = saved.mission;
+    const buffered = liveBuffer; liveBuffer = [];
+    render();
+    buffered.forEach(m2 => handle(m2));
+  }
+  $('historyBtn').onclick = openHistory;
+  $('historyClose').onclick = closeHistory;
+
+  // ---------- task submission ----------
+  async function openTask() {
+    $('taskOverlay').hidden = false;
+    $('taskErr').textContent = '';
+    $('taskPrompt').value = '';
+    const list = $('templateList'); list.innerHTML = '';
+    try {
+      const r = await fetch('/api/templates');
+      const j = await r.json();
+      if (j.ok) for (const t of j.templates) {
+        const b = document.createElement('button');
+        b.className = 'tbtn tmpl'; b.textContent = t.name;
+        b.onclick = () => { $('taskPrompt').value = t.prompt; };
+        list.appendChild(b);
+      }
+    } catch {}
+  }
+  function closeTask() { $('taskOverlay').hidden = true; }
+  async function sendTask() {
+    const prompt = $('taskPrompt').value.trim();
+    if (!prompt) return;
+    const btn = $('taskSend'); btn.disabled = true;
+    try {
+      const r = await fetch('/api/task', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+      closeTask();
+    } catch (err) {
+      $('taskErr').textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  $('newTaskBtn').onclick = openTask;
+  $('taskClose').onclick = closeTask;
+  $('taskSend').onclick = sendTask;
+
+  // ---------- SLA overdue badges ----------
+  const SLA_MS = 5 * 60 * 1000;
+  setInterval(() => {
+    const now = Date.now();
+    for (const n of state.nodes.values()) {
+      const rec = els.get(n.id); if (!rec) continue;
+      const active = n.status === 'thinking' || n.status === 'executing' || n.status === 'waiting';
+      rec.el.classList.toggle('overdue', !!(active && n.statusSince && now - n.statusSince > SLA_MS));
+    }
+  }, 5000);
   function setConnFromStatus(s, detail) {
     const text = { live: 'Gateway live', connecting: 'Connecting', reconnecting: 'Reconnecting', error: 'Gateway refused connection' }[s] || s;
     setConn(s, text);
@@ -507,6 +775,7 @@
 
   function startLive() {
     const es = new EventSource('events');
+    liveES = es;
     let opened = false;
     es.onmessage = e => { opened = true; handle(JSON.parse(e.data)); };
     es.onerror = () => { if (!opened) { es.close(); startDemo(); } else setConn('reconnecting', 'Mission Control offline'); };
@@ -563,9 +832,320 @@
       if (ok) play(after);
       else play([[1500, () => [up({ id: A('main'), status: 'idle', detail: 'Paused: restart rejected' }), up({ id: 'mission', status: 'error' }), log('main', 'Mission paused after rejection', 'error')]], [6000, () => { run(); return []; }]]);
     }
-    return { run, resolve };
+    function stop() { timers.forEach(clearTimeout); timers = []; waitingFor = null; }
+    return { run, resolve, stop };
   })();
   function startDemo() { demo.run(); }
+
+  // ---------- auth (no-op unless MC_AUTH_USERS is configured server-side) ----------
+  async function loadSession() {
+    try {
+      const r = await fetch('/api/session');
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok) return;
+      state.role = j.role || state.role;
+      if (!j.authEnabled) return;
+      const btn = $('logoutBtn');
+      btn.hidden = false;
+      btn.textContent = `Log out (${j.username})`;
+      btn.onclick = async () => { await fetch('/api/logout', { method: 'POST' }); location.href = '/login'; };
+      if (j.role === 'admin') loadAudit();
+    } catch {}
+  }
+  async function loadAudit() {
+    try {
+      const r = await fetch('/api/audit');
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok) return;
+      const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      $('auditSection').hidden = false;
+      const list = $('auditList'); list.innerHTML = '';
+      for (const e of j.entries.slice().reverse()) {
+        const li = document.createElement('li');
+        const d = new Date(e.at);
+        const line = `${esc(e.user || '?')} ${esc(e.action)}${e.target ? ' ' + esc(e.target) : ''} — ${esc(e.result)}`;
+        li.innerHTML = `<time>${d.toTimeString().slice(0, 8)}</time><span></span>`;
+        li.querySelector('span').textContent = line;
+        list.appendChild(li);
+      }
+    } catch {}
+  }
+  // ---------- agent registry / management ----------
+  function bareId(id) { return String(id).replace(/^agent:/, ''); }
+  function renderAgents() {
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const list = $('agentsList');
+    const agentNodes = [...state.nodes.values()].filter(n => n.kind === 'agent');
+    const byId = new Map(agentNodes.map(n => [n.id, n]));
+    const roots = agentNodes.filter(n => n.parent === 'mission' || !byId.has(n.parent));
+    const rendered = new Set();
+    const rows = [];
+    function walk(n, depth) {
+      if (rendered.has(n.id)) return;
+      rendered.add(n.id);
+      rows.push({ n, depth });
+      agentNodes.filter(k => k.parent === n.id).forEach(k => walk(k, depth + 1));
+    }
+    roots.forEach(n => walk(n, 0));
+    agentNodes.forEach(n => { if (!rendered.has(n.id)) rows.push({ n, depth: 0 }); });
+
+    const now = Date.now();
+    list.innerHTML = rows.map(({ n, depth }) => {
+      const since = n.statusSince ? Math.max(0, now - n.statusSince) : null;
+      const sinceText = since != null ? `${Math.floor(since / 1000)}s in ${STATUS_TEXT[n.status] || n.status}` : '';
+      const hasUsage = n.tokensIn != null || n.tokensOut != null;
+      const tokens = hasUsage ? `in ${n.tokensIn || 0} / out ${n.tokensOut || 0} (last run)` : 'no usage reported by this Gateway';
+      const id = esc(n.id);
+      const controls = state.role === 'admin' ? `
+        <button class="tbtn" data-agent-action="stop" data-agent-id="${id}">Stop</button>
+        <button class="tbtn" data-agent-action="restart" data-agent-id="${id}">Restart</button>
+        <button class="tbtn" data-agent-action="pause" data-agent-id="${id}">Pause</button>
+        <button class="tbtn" data-agent-action="resume" data-agent-id="${id}">Resume</button>
+        <button class="tbtn" data-agent-config="${id}">Edit config</button>` : '';
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--grid);margin-left:${depth * 16}px">
+        <div style="font-weight:600">${esc(n.label || bareId(n.id))} <span style="font-size:11px;font-weight:400;color:var(--muted)">${esc(STATUS_TEXT[n.status] || n.status)}</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(n.model || 'model unknown')}${sinceText ? ' · ' + esc(sinceText) : ''}</div>
+        <div style="font-size:12px;color:var(--muted)">tokens: ${esc(tokens)}</div>
+        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${controls}</div>
+      </div>`;
+    }).join('') || '<p style="color:var(--muted)">No agents yet.</p>';
+
+    list.querySelectorAll('[data-agent-action]').forEach(b => { b.onclick = () => agentControl(b.dataset.agentId, b.dataset.agentAction); });
+    list.querySelectorAll('[data-agent-config]').forEach(b => { b.onclick = () => agentConfig(b.dataset.agentConfig); });
+  }
+  function openAgents() { $('agentsOverlay').hidden = false; renderAgents(); }
+  function closeAgents() { $('agentsOverlay').hidden = true; }
+  async function agentControl(id, action) {
+    const name = bareId(id);
+    try {
+      const r = await fetch(`/api/agent/${encodeURIComponent(name)}/control`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+      addFeed({ agent: 'mission control', text: `${action} sent for ${name}`, tone: 'result' });
+    } catch (err) {
+      addFeed({ agent: 'mission control', text: `${action} failed for ${name}: ${err.message}`, tone: 'error' });
+    }
+  }
+  async function agentConfig(id) {
+    const name = bareId(id);
+    const raw = prompt(`Config changes for ${name} (JSON object):`, '{}');
+    if (raw == null) return;
+    let config;
+    try { config = JSON.parse(raw); } catch { addFeed({ agent: 'mission control', text: 'Config must be valid JSON', tone: 'error' }); return; }
+    try {
+      const r = await fetch(`/api/agent/${encodeURIComponent(name)}/config`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ config }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+      addFeed({ agent: 'mission control', text: `Config update sent for ${name}`, tone: 'result' });
+    } catch (err) {
+      addFeed({ agent: 'mission control', text: `Config update failed for ${name}: ${err.message}`, tone: 'error' });
+    }
+  }
+  async function spawnAgent() {
+    const agentId = prompt('Spawn which agent (id)?', '');
+    if (!agentId) return;
+    const task = prompt('Task for the new sub-agent:', '');
+    if (!task) return;
+    try {
+      const r = await fetch('/api/agent/spawn', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agentId, prompt: task }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+      addFeed({ agent: 'mission control', text: `Spawn requested: ${agentId}`, tone: 'result' });
+    } catch (err) {
+      addFeed({ agent: 'mission control', text: `Spawn failed: ${err.message}`, tone: 'error' });
+    }
+  }
+  $('agentsBtn').onclick = openAgents;
+  $('agentsClose').onclick = closeAgents;
+  $('agentsSpawn').onclick = spawnAgent;
+
+  // ---------- tool catalog / usage / policy ----------
+  async function renderTools() {
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const list = $('toolsList');
+    list.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
+    let tools = [], policy = {};
+    try {
+      const [tr, pr] = await Promise.all([fetch('/api/tools'), fetch('/api/tool-policy')]);
+      const tj = await tr.json().catch(() => ({}));
+      const pj = await pr.json().catch(() => ({}));
+      if (tj.ok) tools = tj.tools;
+      if (pj.ok) policy = pj.policy;
+    } catch {
+      list.innerHTML = '<p style="color:var(--error)">Could not load tool stats.</p>';
+      return;
+    }
+    if (!tools.length) { list.innerHTML = '<p style="color:var(--muted)">No completed tool calls recorded yet.</p>'; return; }
+
+    list.innerHTML = tools.map(t => {
+      const agentRows = (t.agents.length ? t.agents : ['(unknown)']).map(agentId => {
+        const current = policy[`${agentId}:${t.name}`] || 'ask';
+        const editor = state.role === 'admin'
+          ? `<select data-policy-agent="${esc(agentId)}" data-policy-tool="${esc(t.name)}" style="margin-left:8px">${['allow', 'ask', 'deny'].map(p => `<option value="${esc(p)}" ${p === current ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>`
+          : `<span style="margin-left:8px;color:var(--muted)">${esc(current)}</span>`;
+        return `<div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(agentId)}:${editor}</div>`;
+      }).join('');
+      const avg = t.avgDurationMs != null ? `${t.avgDurationMs}ms avg` : 'duration unknown';
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--grid)">
+        <div style="font-weight:600">${esc(t.name)} <span style="font-size:11px;font-weight:400;color:var(--muted)">${t.calls} calls · ${t.success} ok · ${t.failure} failed · ${avg}</span></div>
+        ${agentRows}
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('[data-policy-agent]').forEach(sel => {
+      sel.onchange = () => setToolPolicy(sel.dataset.policyAgent, sel.dataset.policyTool, sel.value);
+    });
+  }
+  function openTools() { $('toolsOverlay').hidden = false; renderTools(); }
+  function closeTools() { $('toolsOverlay').hidden = true; }
+  async function setToolPolicy(agentId, tool, policy) {
+    try {
+      const r = await fetch('/api/tool-policy', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agentId, tool, policy }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+      addFeed({ agent: 'mission control', text: `${tool} policy for ${agentId} set to ${policy}${j.rpcError ? ' (saved locally; Gateway rejected the change)' : ''}`, tone: j.rpcError ? 'error' : 'result' });
+    } catch (err) {
+      addFeed({ agent: 'mission control', text: `Could not set ${tool} policy for ${agentId}: ${err.message}`, tone: 'error' });
+    }
+  }
+  $('toolsBtn').onclick = openTools;
+  $('toolsClose').onclick = closeTools;
+  $('toolsRefresh').onclick = renderTools;
+
+  // ---------- Mission Control health panel (distinct from the small badge above: this one
+  // shows /api/metrics -- event throughput, unknown-event warnings, reconnect count) ----------
+  async function renderHealth() {
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const body = $('healthBody');
+    body.innerHTML = 'Loading…';
+    try {
+      const r = await fetch('/api/metrics');
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok) throw new Error('failed to load');
+      const rows = [
+        ['Gateway', j.gatewayStatus],
+        ['Uptime', `${j.uptimeSec}s`],
+        ['SSE clients', j.sseClients],
+        ['Reconnects', j.reconnectCount],
+      ];
+      const events = Object.entries(j.eventCounts || {}).sort((a, b) => b[1] - a[1]);
+      const unknown = Object.entries(j.unknownEventCounts || {});
+      body.innerHTML = `
+        <dl style="display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:0">
+          ${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd style="margin:0">${esc(v)}</dd>`).join('')}
+        </dl>
+        <div style="margin-top:10px;font-weight:600;color:var(--ink)">Event throughput</div>
+        ${events.length ? events.map(([name, count]) => `<div>${esc(name)}: ${count}</div>`).join('') : '<div>No events yet.</div>'}
+        ${unknown.length ? `<div style="margin-top:10px;font-weight:600;color:var(--error)">Unrecognized events (Gateway protocol drift)</div>${unknown.map(([name, count]) => `<div>${esc(name)}: ${count}</div>`).join('')}` : ''}
+      `;
+    } catch (err) {
+      body.innerHTML = `<span style="color:var(--error)">Could not load metrics: ${err.message}</span>`;
+    }
+  }
+  function openHealth() { $('healthOverlay').hidden = false; renderHealth(); }
+  function closeHealth() { $('healthOverlay').hidden = true; }
+  $('healthBtn').onclick = openHealth;
+  $('healthClose').onclick = closeHealth;
+  $('healthRefresh').onclick = renderHealth;
+
+  // ---------- Mission Control's own health, independent of the Gateway/SSE status ----------
+  let healthFailures = 0;
+  async function pollHealth() {
+    try {
+      const r = await fetch('/api/health', { cache: 'no-store' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      await r.json();
+      healthFailures = 0;
+      $('healthBadge').hidden = true;
+    } catch {
+      healthFailures += 1;
+      if (healthFailures >= 2) $('healthBadge').hidden = false;
+    }
+  }
+  pollHealth();
+  setInterval(pollHealth, 15000);
+
+  // ---------- search / filter ----------
+  let searchQuery = '';
+  const matchesSearch = text => !searchQuery || String(text ?? '').toLowerCase().includes(searchQuery);
+  function applySearchFilter() {
+    for (const li of $('feedList').children) li.classList.toggle('search-hide', !matchesSearch(li.textContent));
+    for (const [id, rec] of els) {
+      const n = state.nodes.get(id);
+      const hay = n ? [n.label, n.tool, n.status, n.detail, n.model].filter(Boolean).join(' ') : '';
+      rec.el.classList.toggle('search-dim', !matchesSearch(hay));
+    }
+  }
+  $('searchInput').addEventListener('input', (e) => { searchQuery = e.target.value.trim().toLowerCase(); applySearchFilter(); });
+
+  // ---------- desktop notifications (opt-in; only fires while the tab is unfocused) ----------
+  function notifyIfEnabled(title, body) {
+    try {
+      if (localStorage.getItem('mc_notify') !== '1') return;
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      if (!document.hidden) return;
+      new Notification(title, { body, tag: title });
+    } catch { /* Notification API unavailable or blocked -- silently skip */ }
+  }
+  async function toggleNotify() {
+    let enabled = false;
+    try { enabled = localStorage.getItem('mc_notify') === '1'; } catch {}
+    if (enabled) {
+      try { localStorage.setItem('mc_notify', '0'); } catch {}
+      $('notifyBtn').textContent = '🔔 Notifications off';
+      return;
+    }
+    try {
+      const perm = typeof Notification !== 'undefined' ? await Notification.requestPermission() : 'denied';
+      if (perm !== 'granted') { $('notifyBtn').textContent = '🔔 Permission denied'; return; }
+      localStorage.setItem('mc_notify', '1');
+      $('notifyBtn').textContent = '🔔 Notifications on';
+    } catch { $('notifyBtn').textContent = '🔔 Unavailable'; }
+  }
+  $('notifyBtn').onclick = toggleNotify;
+  try { if (localStorage.getItem('mc_notify') === '1' && typeof Notification !== 'undefined' && Notification.permission === 'granted') $('notifyBtn').textContent = '🔔 Notifications on'; } catch {}
+
+  // ---------- theme ----------
+  function applyTheme(t) {
+    if (t === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = t;
+  }
+  let theme = 'system';
+  try { theme = localStorage.getItem('mc_theme') || 'system'; } catch {}
+  applyTheme(theme);
+  $('themeBtn').textContent = `Theme: ${theme}`;
+  $('themeBtn').onclick = () => {
+    theme = theme === 'system' ? 'dark' : theme === 'dark' ? 'light' : 'system';
+    try { localStorage.setItem('mc_theme', theme); } catch {}
+    applyTheme(theme);
+    $('themeBtn').textContent = `Theme: ${theme}`;
+  };
+
+  // ---------- demo toggle (in-UI alternative to editing ?demo in the URL) ----------
+  $('demoBtn').onclick = () => {
+    if (state.mode === 'demo') {
+      demo.stop();
+      startLive();
+    } else {
+      if (liveES) { liveES.close(); liveES = null; }
+      startDemo();
+    }
+  };
+
+  // ---------- keyboard shortcuts (ignored while typing in a field) ----------
+  addEventListener('keydown', (e) => {
+    const tag = (e.target && e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'g') { userMoved = false; $('recenter').hidden = true; fit(); }
+    else if (e.key === 'y' || e.key === 'n') {
+      const waiting = [...state.nodes.values()].find(w => w.kind === 'approval' && w.status === 'waiting');
+      if (waiting) resolveApproval(waiting.id, e.key === 'y' ? 'approve' : 'reject');
+    } else if (e.key === 'm') {
+      $('demoBtn').click();
+    }
+  });
+
+  loadSession();
 
   requestAnimationFrame(frame);
   const isServed = location.protocol.startsWith('http') && !/claude|anthropic/.test(location.hostname) && !new URLSearchParams(location.search).has('demo');

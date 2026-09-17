@@ -1,0 +1,5 @@
+[
+  { "name": "Disk usage check", "prompt": "Check disk usage on the VPS and report which directories are largest." },
+  { "name": "Recent restarts", "prompt": "Check whether any core services restarted in the last hour, and why." },
+  { "name": "Security sweep", "prompt": "Review auth logs for the last 24 hours for anything suspicious." }
+]

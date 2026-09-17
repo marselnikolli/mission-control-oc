@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Live execution map for an OpenClaw multi-agent Gateway",
+  "bin": { "mc-cli": "bin/mc-cli.js" },
   "scripts": {
     "start": "node server.js",
-    "probe": "node server.js --probe"
+    "probe": "node server.js --probe",
+    "test": "node --test",
+    "lint": "eslint ."
   },
   "engines": { "node": ">=20" },
-  "dependencies": { "ws": "^8.18.0" }
+  "dependencies": { "ws": "^8.18.0" },
+  "devDependencies": { "eslint": "^9.14.0" }
 }

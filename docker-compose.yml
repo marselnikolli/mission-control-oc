@@ -1,0 +1,17 @@
+services:
+  mission-control:
+    build: .
+    env_file:
+      - .env
+    environment:
+      # Bind to all interfaces *inside* the container -- the port mapping below is what keeps
+      # this off the public internet, the same way the README's SSH-tunnel setup does for a
+      # bare-metal run. Don't publish this port without also removing the 127.0.0.1 prefix
+      # deliberately and understanding that anyone reaching it sees your agents' commands.
+      - MC_HOST=0.0.0.0
+    ports:
+      - "127.0.0.1:4400:4400"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped

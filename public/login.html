@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mission Control — Sign in</title>
+<style>
+  :root { --bg: #0d1924; --card: #132332; --line: #29435a; --ink: #dfe8ef; --muted: #8198ab; --error: #ef7266;
+    --sans: "Instrument Sans", "Segoe UI", system-ui, sans-serif; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #eef2f5; --card: #ffffff; --line: #bccad6; --ink: #15232f; --muted: #57697a; --error: #c9443a; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  body { display: flex; align-items: center; justify-content: center; }
+  form { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 28px; width: 280px; }
+  h1 { font-size: 17px; margin: 0 0 18px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; }
+  button { margin-top: 18px; width: 100%; padding: 9px 0; border-radius: 8px; border: 1px solid var(--line); background: var(--ink); color: var(--bg); font: inherit; font-weight: 600; cursor: pointer; }
+  button[disabled] { opacity: .5; cursor: default; }
+  #err { color: var(--error); font-size: 13px; margin-top: 10px; min-height: 16px; }
+</style>
+</head>
+<body>
+<form id="f">
+  <h1>Mission Control</h1>
+  <label for="u">Username</label>
+  <input id="u" name="username" autocomplete="username" required>
+  <label for="p">Password</label>
+  <input id="p" name="password" type="password" autocomplete="current-password" required>
+  <div id="err"></div>
+  <button type="submit">Sign in</button>
+</form>
+<script>
+  const f = document.getElementById('f'), err = document.getElementById('err');
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.textContent = '';
+    const btn = f.querySelector('button'); btn.disabled = true;
+    try {
+      const r = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username: f.username.value, password: f.password.value }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.error || 'Sign in failed');
+      location.href = '/';
+    } catch (e2) {
+      err.textContent = e2.message;
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

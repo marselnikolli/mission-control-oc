@@ -8,6 +8,14 @@
 // Payload shapes differ between OpenClaw versions, so every field is read defensively.
 // When something doesn't show up on the map, look at logs/events.jsonl and adjust the pick() paths.
 
+// Every event name normalize() actually handles below -- kept as one literal set so
+// server.js can flag anything else as Gateway protocol drift without duplicating this list.
+export const KNOWN_EVENTS = new Set([
+  'sessions.snapshot', 'sessions.changed', 'agent', 'session.tool', 'session.message', 'chat',
+  'session.approval', 'exec.approval.requested', 'exec.approval.resolved',
+  'plugin.approval.requested', 'plugin.approval.resolved',
+]);
+
 export function pick(obj, ...paths) {
   for (const p of paths) {
     let v = obj;
@@ -31,6 +39,17 @@ export function textOf(msg) {
   if (typeof c === 'string') return c;
   if (Array.isArray(c)) return c.filter(b => b && (b.type === 'text' || typeof b.text === 'string')).map(b => b.text).join(' ');
   return '';
+}
+
+// Extracts token usage from wherever a Gateway version happens to put it. Returns null when
+// nothing usable is found, so callers can skip attaching tokensIn/tokensOut entirely.
+export function usageOf(p) {
+  const u = pick(p, 'usage', 'data.usage', 'result.usage', 'message.usage');
+  if (!u || typeof u !== 'object') return null;
+  const inTok = pick(u, 'inputTokens', 'input_tokens', 'promptTokens', 'prompt_tokens');
+  const outTok = pick(u, 'outputTokens', 'output_tokens', 'completionTokens', 'completion_tokens');
+  if (inTok == null && outTok == null) return null;
+  return { tokensIn: Number(inTok) || 0, tokensOut: Number(outTok) || 0 };
 }
 
 export function createNormalizer({ agents }) {
@@ -105,7 +124,10 @@ export function createNormalizer({ agents }) {
       ];
     }
     if (/end|final|done|complete/.test(phase)) {
-      const ops = [{ op: 'upsert', node: { id, kind: 'agent', status: 'done', detail: '' } }];
+      const usage = usageOf(p);
+      const node = { id, kind: 'agent', status: 'done', detail: '' };
+      if (usage) Object.assign(node, usage);
+      const ops = [{ op: 'upsert', node }];
       const parent = parentNodeForSession(key);
       if (parent !== 'mission') ops.push({ op: 'pulse', from: id, to: parent, tone: 'result' });
       ops.push({ op: 'log', agent: agentId, text: 'Finished its run', tone: 'result' });
@@ -139,7 +161,7 @@ export function createNormalizer({ agents }) {
 
     if (/start|call|running|begin/.test(phase) || (!phase && args)) {
       return [
-        { op: 'upsert', node: { id, parent: agentNode, kind: 'tool', label, tool: name, status: 'executing' } },
+        { op: 'upsert', node: { id, parent: agentNode, kind: 'tool', label, tool: name, status: 'executing', sessionKey: key, callId, args } },
         { op: 'upsert', node: { id: agentNode, kind: 'agent', status: 'executing', detail: label } },
         { op: 'pulse', from: agentNode, to: id, tone: 'exec' },
         { op: 'log', agent: agentId, text: `Running ${label}`, tone: 'exec' },
@@ -150,7 +172,7 @@ export function createNormalizer({ agents }) {
       const summary = short(pick(p, 'result.summary', 'summary', 'resultPreview', 'result'), 120);
       toolNames.delete(callId);
       return [
-        { op: 'upsert', node: { id, parent: agentNode, kind: 'tool', label, status: failed ? 'error' : 'done', detail: summary } },
+        { op: 'upsert', node: { id, parent: agentNode, kind: 'tool', label, status: failed ? 'error' : 'done', detail: summary, sessionKey: key, callId } },
         { op: 'upsert', node: { id: agentNode, kind: 'agent', status: 'thinking', detail: '' } },
         { op: 'pulse', from: id, to: agentNode, tone: failed ? 'error' : 'result' },
         { op: 'log', agent: agentId, text: `${failed ? 'Failed' : 'Finished'} ${label}`, tone: failed ? 'error' : 'result' },

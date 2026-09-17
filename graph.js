@@ -1,5 +1,13 @@
 // Server-side graph state. Browsers get a snapshot on connect, then the same ops live.
 const MAX_LEAVES_PER_AGENT = 6;
+const ACTIVE_STATUSES = new Set(['thinking', 'executing', 'waiting']);
+
+// True once a node has held an active status longer than thresholdMs — used to flag a stuck
+// agent/tool/approval in the UI. Never flags idle/done/error, or a node with no statusSince yet.
+export function isOverdue(node, now = Date.now(), thresholdMs = 5 * 60 * 1000) {
+  if (!node || !node.statusSince || !ACTIVE_STATUSES.has(node.status)) return false;
+  return now - node.statusSince > thresholdMs;
+}
 
 export function createGraph({ agents }) {
   const nodes = new Map();
@@ -45,7 +53,12 @@ export function createGraph({ agents }) {
         const prev = nodes.get(incoming.id);
         if (!prev && incoming.kind === 'agent' && !incoming.label) incoming.label = incoming.id.replace('agent:', '');
         const next = { ...(prev || { status: 'idle' }), ...incoming };
+        // Token counts accumulate across runs (a lifetime-per-agent total) rather than the
+        // last upsert simply overwriting the last one -- budgets need a running total to mean anything.
+        if (incoming.tokensIn != null) next.tokensIn = (prev?.tokensIn || 0) + incoming.tokensIn;
+        if (incoming.tokensOut != null) next.tokensOut = (prev?.tokensOut || 0) + incoming.tokensOut;
         if (idleHint && (next.status === 'thinking' || next.status === 'executing')) next.status = 'idle';
+        if (!prev || prev.status !== next.status) next.statusSince = Date.now();
         nodes.set(next.id, next);
         out.push({ op: 'upsert', node: next });
         if (!prev && next.parent && (next.kind === 'tool' || next.kind === 'approval')) out.push(...prune(next.parent));

@@ -1,0 +1,4 @@
+{
+  "_comment": "USD per 1000 tokens. Fill in real prices for the models your agents use — this is only consulted when a Gateway event reports usage (see normalizer.js's usageOf). 'default' is used for any model not listed.",
+  "default": { "inputPer1k": 0, "outputPer1k": 0 }
+}
