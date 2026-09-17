@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node server.js",
     "probe": "node server.js --probe",
+    "env:token": "bash bin/mc-gateway-token.sh",
     "test": "node --test",
     "lint": "eslint ."
   },

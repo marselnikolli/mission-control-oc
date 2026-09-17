@@ -6,6 +6,10 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/mission-control
+# Ensure .env has a usable OPENCLAW_GATEWAY_TOKEN before first connect: resolves the token
+# from the OpenClaw config/env or generates a persistent one. Tolerated if the script is
+# missing so a partial checkout doesn't block the unit.
+ExecStartPre=/bin/bash -c 'test -x %h/mission-control/bin/mc-gateway-token.sh && %h/mission-control/bin/mc-gateway-token.sh || true'
 ExecStart=/usr/bin/env node server.js
 Restart=on-failure
 RestartSec=5

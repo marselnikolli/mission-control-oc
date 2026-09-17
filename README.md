@@ -30,10 +30,19 @@ route, and [`plan.md`](plan.md) for the implementation history and what's delibe
 ```bash
 cd mission-control
 npm install            # one runtime dependency: ws
-cp .env.example .env   # set OPENCLAW_GATEWAY_TOKEN, and anything else you want to opt into
+cp .env.example .env
+bin/mc-gateway-token.sh  # resolves OPENCLAW_GATEWAY_TOKEN from the Gateway, or generates one
 npm run probe          # first run: prints every Gateway event it receives
 npm start
 ```
+
+`bin/mc-gateway-token.sh` (also `npm run env:token`) looks for the shared token the Gateway is
+already configured with — `OPENCLAW_GATEWAY_TOKEN` in the environment, `openclaw gateway
+auth-token --show` (config token / SecretRefs), or `gateway.auth.token` in
+`~/.openclaw/openclaw.json` — and writes whichever it finds into `.env`. If nothing is configured
+anywhere it runs `openclaw doctor --generate-gateway-token`, or as a last resort generates a
+random token itself (warning you to restart the Gateway so it binds it). It's idempotent: once
+`.env` has a token it does nothing, so it's safe to run on every deploy. `--force` regenerates.
 
 It listens on `127.0.0.1:4400` only. From your laptop:
 
@@ -129,7 +138,8 @@ consider setting `MC_AUTH_USERS` too, once you're granting real write access).
 - `circuitbreaker.js` / `log.js`: reconnect backoff and structured logging
 - `public/index.html`: the whole UI, no build step; also contains the demo script
 - `public/login.html`: the sign-in page, served when `MC_AUTH_USERS` is set
-- `bin/mc-cli.js`, `bin/mc-backup.sh`: the CLI companion and backup script
+- `bin/mc-cli.js`, `bin/mc-backup.sh`, `bin/mc-gateway-token.sh`: the CLI companion, backup
+  script, and the deploy-time token resolver/provisioner
 - `test/`: `node --test` suite covering every module above
 - `API.md`: every HTTP route, its auth requirement, and its Gateway RPC (if any)
 - `features.md` / `plan.md`: the original feature gap analysis and the phased implementation
@@ -138,9 +148,12 @@ consider setting `MC_AUTH_USERS` too, once you're granting real write access).
 ## Deployment
 
 - **systemd user service:** copy `mission-control.service` to `~/.config/systemd/user/`, then
-  `systemctl --user daemon-reload && systemctl --user enable --now mission-control`.
-- **Docker:** `docker compose up -d` (see `docker-compose.yml` / `Dockerfile`). The container
-  binds `0.0.0.0` internally, but the compose file only publishes it on the host's
+  `systemctl --user daemon-reload && systemctl --user enable --now mission-control`. The unit's
+  `ExecStartPre` runs `bin/mc-gateway-token.sh` on every start, so a fresh clone provisions
+  `.env` automatically before the server's first connect.
+- **Docker:** on the host, run `bin/mc-gateway-token.sh` once so `.env` has the token, then
+  `docker compose up -d` (see `docker-compose.yml` / `Dockerfile`). The container binds
+  `0.0.0.0` internally, but the compose file only publishes it on the host's
   `127.0.0.1:4400` — same "don't expose this publicly" guarantee as running it bare-metal.
 - Either way, `SIGTERM`/`SIGINT` (what both `systemctl stop` and `docker stop` send) now shut
   the process down cleanly instead of just being killed.
