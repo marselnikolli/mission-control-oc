@@ -8,9 +8,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0d1924; --grid: #16283a; --card: #132332; --card-hi: #182c3e; --line: #29435a;
-    --ink: #dfe8ef; --muted: #8198ab; --faint: #4d6477;
-    --thinking: #6cc4e0; --executing: #a795f2; --waiting: #ecbc4f; --done: #7cc79c; --error: #ef7266;
+    --bg: #070f18; --grid: #16283a; --card: #101f2e; --card-hi: #16293b; --line: #24405a;
+    --ink: #e4edf4; --muted: #83a0b5; --faint: #4d6477;
+    --thinking: #5ecdf2; --executing: #b39bff; --waiting: #f0c454; --done: #6fe0a8; --error: #ff7a68;
+    --side-bg: #080e15; --side-fg: #9fb1c0; --side-hover: rgba(94,205,242,.07);
+    --side-active: rgba(94,205,242,.16); --side-active-fg: #7fe0ff;
     --sans: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   }
@@ -19,51 +21,254 @@
       --bg: #eef2f5; --grid: #dde5ec; --card: #ffffff; --card-hi: #f6f9fb; --line: #bccad6;
       --ink: #15232f; --muted: #57697a; --faint: #93a4b3;
       --thinking: #1f8fb3; --executing: #6b55d6; --waiting: #b78510; --done: #2f8f58; --error: #c9443a;
+      --side-bg: #f6f8fa; --side-fg: #5a6b7a; --side-hover: rgba(15,35,52,.06);
+      --side-active: rgba(31,143,179,.12); --side-active-fg: #1f8fb3;
     }
   }
   :root[data-theme="light"] {
     --bg: #eef2f5; --grid: #dde5ec; --card: #ffffff; --card-hi: #f6f9fb; --line: #bccad6;
     --ink: #15232f; --muted: #57697a; --faint: #93a4b3;
     --thinking: #1f8fb3; --executing: #6b55d6; --waiting: #b78510; --done: #2f8f58; --error: #c9443a;
+    --side-bg: #f6f8fa; --side-fg: #5a6b7a; --side-hover: rgba(15,35,52,.06);
+    --side-active: rgba(31,143,179,.12); --side-active-fg: #1f8fb3;
   }
   * { box-sizing: border-box; }
+  /* The `hidden` attribute must win over the author rules below (`.view { display: … }`,
+  `.conn { display: inline-flex }`, …): author-origin otherwise overrides the UA stylesheet's
+  `[hidden] { display: none }`, which would leave off-screen panels and badges permanently visible. */
+  [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); }
-  body { display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: 1fr 340px; height: 100vh; overflow: hidden; }
+  body { overflow: hidden; }
   button { font: inherit; color: inherit; }
   button:focus-visible { outline: 2px solid var(--thinking); outline-offset: 2px; }
   .node:focus-visible { outline: 2px solid var(--thinking); outline-offset: 2px; }
 
-  header { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 20px; border-bottom: 1px solid var(--grid); min-width: 0; }
-  .mission { min-width: 0; flex: 1; }
-  .mission small { display: block; color: var(--muted); font-size: 12px; }
-  .mission h1 { margin: 2px 0 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .clock { font-family: var(--mono); font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .conn { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
-  .conn i { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+  /* ---------- shell ---------- */
+  .layout { display: grid; grid-template-columns: 236px minmax(0, 1fr); height: 100%; }
+
+  .sidebar { display: flex; flex-direction: column; gap: 4px; background: color-mix(in srgb, var(--side-bg) 92%, transparent); backdrop-filter: blur(10px); border-right: 1px solid var(--line); box-shadow: 1px 0 24px -12px rgba(94,205,242,.3); padding: 14px 12px; min-height: 0; }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 2px 8px 14px; font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
+  .brand .logo { width: 24px; height: 24px; border-radius: 50%; flex: none; background: linear-gradient(135deg, var(--thinking), var(--executing)); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+  .nav { display: flex; flex-direction: column; gap: 2px; flex: 1; min-height: 0; overflow-y: auto; }
+  .nav-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; background: transparent; border-radius: 999px; font: inherit; font-size: 13px; color: var(--side-fg); cursor: pointer; text-align: left; }
+  .nav-item:hover { background: var(--side-hover); color: var(--ink); }
+  .nav-item.active { background: var(--side-active); color: var(--side-active-fg); font-weight: 600; box-shadow: inset 2px 0 0 var(--side-active-fg); }
+  .nav-ico { width: 16px; height: 16px; flex: none; }
+  .sidebar-foot { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .conn, .health-pill { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; color: var(--side-fg); }
+  .conn i { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
   .conn[data-s="live"] i { background: var(--done); }
   .conn[data-s="demo"] i { background: var(--executing); }
   .conn[data-s="reconnecting"] i, .conn[data-s="connecting"] i { background: var(--waiting); }
   .conn[data-s="error"] i { background: var(--error); }
-  .tbtn { background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
-  .tbtn:hover { background: var(--card-hi); }
-  .tbtn[disabled] { opacity: .45; cursor: default; }
-  .node .collapse-toggle { border: none; background: transparent; cursor: pointer; padding: 0 3px 0 0; font-size: 11px; color: var(--muted); line-height: 1; }
-  .node.search-dim { opacity: .22; }
-  #feedList li.search-hide { display: none; }
-  #searchInput { width: 100%; box-sizing: border-box; padding: 6px 9px; margin-bottom: 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 12.5px; }
-  #budgetBanner { grid-column: 1 / -1; padding: 6px 20px; font-size: 12.5px; background: var(--waiting); color: #1d1405; }
+  .health-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--error); }
+
+  .shell { display: grid; grid-template-rows: auto auto 1fr; min-width: 0; min-height: 0; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; background: color-mix(in srgb, var(--card) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); min-width: 0; grid-row: 1; }
+  .top-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .mission { min-width: 0; }
+  .mission small { display: block; color: var(--muted); font-size: 11.5px; }
+  .mission h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clock { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #budgetBanner { padding: 6px 18px; font-size: 12.5px; background: var(--waiting); color: #1d1405; grid-row: 2; }
   #budgetBanner.exceeded { background: var(--error); color: #fff; }
 
-  #stage { position: relative; overflow: hidden; cursor: grab;
-    background-image: radial-gradient(var(--grid) 1px, transparent 1px); background-size: 28px 28px; }
+  .tbtn { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px; font-size: 12.5px; cursor: pointer; }
+  .tbtn:hover { background: var(--card-hi); border-color: var(--muted); }
+  .tbtn[disabled] { opacity: .45; cursor: default; }
+  .btn-sm { padding: 3px 7px; font-size: 12px; }
+  #navToggle { display: none; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; }
+  #navToggle svg { width: 18px; height: 18px; }
+  .scrim { display: none; }
+
+  .main { position: relative; overflow: hidden; min-height: 0; grid-row: 3; }
+  .view { display: block; height: 100%; padding: 20px; overflow-y: auto; }
+  .view-map { display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: minmax(0, 1fr); padding: 0; overflow: hidden; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 18px 20px; max-width: 1080px; margin: 0 auto; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .panel-head h2 { font-size: 14px; font-weight: 600; margin: 0; }
+  .panel-subhead { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 18px 0 8px; }
+  .panel-body { margin-top: 6px; }
+  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .empty-cell { color: var(--muted); padding: 24px 10px; text-align: center; }
+  .td-actions { text-align: right; }
+
+  /* ---------- tables ---------- */
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table thead th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .table tbody td { padding: 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  .table tbody tr:last-child td { border-bottom: 0; }
+  .table tbody tr:hover { background: var(--card-hi); }
+  .t-name { font-weight: 600; }
+  .t-sub { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .cell-ok { color: var(--done); font-variant-numeric: tabular-nums; }
+  .cell-fail { color: var(--error); font-variant-numeric: tabular-nums; }
+  .policy { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; font: inherit; font-size: 12px; margin-left: 6px; }
+
+  /* ---------- status badges ---------- */
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; text-transform: capitalize; white-space: nowrap; }
+  .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+  .badge-idle, .badge-unknown { color: var(--faint); background: color-mix(in srgb, var(--faint) 12%, transparent); }
+  .badge-thinking, .badge-running { color: var(--thinking); background: color-mix(in srgb, var(--thinking) 14%, transparent); }
+  .badge-executing { color: var(--executing); background: color-mix(in srgb, var(--executing) 14%, transparent); }
+  .badge-waiting, .badge-ask { color: var(--waiting); background: color-mix(in srgb, var(--waiting) 14%, transparent); }
+  .badge-done, .badge-completed, .badge-allow, .badge-live { color: var(--done); background: color-mix(in srgb, var(--done) 14%, transparent); }
+  .badge-error, .badge-failed, .badge-deny, .badge-reconnecting { color: var(--error); background: color-mix(in srgb, var(--error) 14%, transparent); }
+  .badge-connecting { color: var(--thinking); background: color-mix(in srgb, var(--thinking) 14%, transparent); }
+
+  /* ---------- KPI tiles (Health) ---------- */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .kpi { background: var(--card-hi); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; }
+  .kpi-label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .kpi-value { display: block; margin-top: 4px; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .drift { margin-top: 18px; padding: 10px 12px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--error) 40%, transparent); background: color-mix(in srgb, var(--error) 8%, transparent); color: var(--error); font-size: 12.5px; }
+
+  /* ---------- forms & fields (agent config, spawn, skill install) ---------- */
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 16px; margin-top: 14px; }
+  .form-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .form-field label { font-size: 12px; color: var(--muted); }
+  .form-field input, .form-field select, .form-field textarea {
+    width: 100%; padding: 7px 10px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); font: inherit; font-size: 13px;
+  }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--thinking); outline: none; }
+  .form-field textarea { resize: vertical; min-height: 84px; font-family: var(--mono); font-size: 12px; line-height: 1.5; }
+  .form-field .hint { font-size: 11.5px; color: var(--faint); }
+  .form-field.span-all { grid-column: 1 / -1; }
+  .form-err { color: var(--error); font-size: 12.5px; min-height: 16px; margin-top: 8px; }
+  .form-note { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+  .grow { flex: 1; }
+  .center { text-align: center; }
+  .mt-xs { margin-top: 2px; }
+  .install-skills { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--card-hi); }
+  .fieldstitle { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 18px 0 0; }
+
+  .md-field { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--bg); }
+  .md-field-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--card-hi); border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 12px; color: var(--ink); }
+  .md-field-head .md-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .md-field-head .hint { margin-left: auto; text-transform: none; letter-spacing: 0; }
+  .md-field textarea { display: block; width: 100%; border: 0; background: transparent; color: var(--ink); font-family: var(--mono); font-size: 12.5px; line-height: 1.55; padding: 12px 14px; resize: vertical; min-height: 110px; box-sizing: border-box; }
+  .md-field textarea:focus { outline: none; }
+
+  .skill-picker { border: 1px solid var(--line); border-radius: 18px; padding: 12px; background: var(--card-hi); }
+  .skill-picker-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .skill-picker-head input { flex: 1; }
+  .skill-count { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; max-height: 280px; overflow-y: auto; padding-right: 2px; }
+  .skill-card { display: block; border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px; cursor: pointer; background: var(--card); transition: border-color .2s, background .2s, box-shadow .2s; }
+  .skill-card:hover { border-color: var(--faint); }
+  .skill-card:has(input:checked) { border-color: var(--thinking); background: color-mix(in srgb, var(--thinking) 12%, var(--card)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--thinking) 45%, transparent); }
+  .skill-card input { position: absolute; opacity: 0; pointer-events: none; }
+  .skill-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .skill-name { font-weight: 600; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .skill-toggle { position: relative; width: 30px; height: 18px; border-radius: 999px; background: var(--line); flex: none; transition: background .2s; }
+  .skill-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform .2s, background .2s; }
+  .skill-card:has(input:checked) .skill-toggle { background: color-mix(in srgb, var(--thinking) 55%, var(--line)); }
+  .skill-card:has(input:checked) .skill-toggle::after { transform: translateX(12px); background: #fff; }
+  .skill-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 5px; }
+  .skill-desc { font-size: 11.5px; color: var(--faint); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .skill-card.skill-hide { display: none; }
+
+  /* ---------- history rows ---------- */
+  .hist-row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--grid); cursor: pointer; }
+  .hist-row:hover { color: var(--thinking); }
+  .hist-row:last-child { border-bottom: 0; }
+  .hist-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .hist-time { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .hist-replay { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .hist-empty { color: var(--muted); font-size: 13px; padding: 10px 4px; list-style: none; }
+
+  /* ---------- task templates ---------- */
+  .tmpl { margin: 4px 4px 0 0; }
+  #taskPrompt { width: 100%; min-height: 84px; border-radius: 16px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; padding: 10px 12px; resize: vertical; box-sizing: border-box; margin-top: 10px; }
+
+  /* ---------- inspector / feed ---------- */
+  #sidePanel { display: grid; grid-template-rows: auto 1fr; min-height: 0; border-left: 1px solid var(--grid); }
+  #inspector { padding: 14px 16px; border-bottom: 1px solid var(--grid); max-height: 42%; overflow-y: auto; }
+  #inspector h2, #feed h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+  #inspector .big { font-size: 16px; font-weight: 600; text-transform: capitalize; }
+  #inspector dl { display: grid; grid-template-columns: 70px 1fr; gap: 6px 10px; margin: 12px 0 0; font-size: 13px; }
+  #inspector dt { color: var(--muted); }
+  #inspector dd { margin: 0; overflow-wrap: anywhere; }
+  #inspector code { font-family: var(--mono); font-size: 12px; }
+  #feed { padding: 14px 16px; overflow-y: auto; min-height: 0; }
+  #searchInput { width: 100%; box-sizing: border-box; padding: 6px 12px; margin-bottom: 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 12.5px; }
+  #feed ol, #auditList { list-style: none; margin: 0; padding: 0; }
+  #feed li, #auditList li { display: grid; grid-template-columns: 58px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--grid); font-size: 13px; line-height: 1.4; }
+  #feed time, #auditList time { font-family: var(--mono); font-size: 11.5px; color: var(--faint); padding-top: 1px; }
+  #feed b { font-weight: 600; text-transform: capitalize; margin-right: 4px; }
+  #feed li[data-tone="error"] b { color: var(--error); }
+  #feed li[data-tone="approval"] b { color: var(--waiting); }
+  #feed li[data-tone="exec"] b { color: var(--executing); }
+  #feed li[data-tone="result"] b { color: var(--done); }
+  #feed li[data-tone="delegate"] b { color: var(--thinking); }
+  #auditList li { font-size: 12px; color: var(--muted); }
+  #feedList li.search-hide { display: none; }
+
+  /* ---------- map ---------- */
+  #stage { position: relative; overflow: hidden; cursor: grab; min-width: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, color-mix(in srgb, var(--thinking) 7%, var(--bg)) 0%, var(--bg) 62%),
+      radial-gradient(var(--grid) 1px, transparent 1px);
+    background-size: 100% 100%, 28px 28px; }
   #stage.dragging { cursor: grabbing; }
+  #neuralBg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; opacity: .7; }
   #world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
   #edges { position: absolute; left: 0; top: 0; overflow: visible; width: 1px; height: 1px; }
-  #edges path.edge { fill: none; stroke: var(--line); stroke-width: 1.6; transition: stroke .4s; }
-  #edges path.edge.hot { stroke: var(--thinking); }
+  #edges path.edge { fill: none; stroke: var(--edge-accent, var(--line)); stroke-width: 1.5; stroke-linecap: round;
+    stroke-dasharray: 2 7; opacity: .6; transition: stroke .4s, stroke-width .4s, opacity .4s;
+    animation: edgeflow 4s linear infinite; }
+  #edges path.edge.hot { stroke: var(--edge-accent, var(--thinking)); stroke-width: 2.4; stroke-dasharray: none; opacity: 1;
+    filter: url(#glow-soft); animation: none; }
+  @keyframes edgeflow { to { stroke-dashoffset: -18; } }
+  .joint { fill: var(--edge-accent, var(--thinking)); filter: url(#glow-soft); animation: jointpulse 2.2s ease-in-out infinite; }
+  .joint.hot { filter: url(#glow-strong); }
+  @keyframes jointpulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+  #recenter { position: absolute; right: 16px; bottom: 16px; z-index: 5; }
+  .hud { position: absolute; z-index: 4; padding: 7px 12px; border-radius: 18px;
+    background: color-mix(in srgb, var(--card) 68%, transparent); border: 1px solid var(--line);
+    backdrop-filter: blur(8px); font-family: var(--mono); pointer-events: none;
+    box-shadow: 0 8px 24px -14px rgba(0,0,0,.6); }
+  .hud-label { display: block; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .hud-value { display: block; margin-top: 2px; font-size: 17px; font-weight: 600; color: var(--thinking); font-variant-numeric: tabular-nums; }
+  .hud-tl { left: 16px; top: 16px; } .hud-tr { right: 16px; top: 16px; } .hud-bl { left: 16px; bottom: 16px; }
+  @media (max-width: 900px) { .hud { display: none; } }
 
-  .node { position: absolute; left: 0; top: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; transition: border-color .3s, box-shadow .3s, opacity .4s; }
-  .node:hover { background: var(--card-hi); }
+  /* Replaces the removed mission node: current-mission status + a queue of recent/past missions
+     (mission history, already tracked -- there's no concurrent-mission backend, so "queue" here
+     means "what's run and what's running now", not parallel execution). */
+  .mission-strip { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); z-index: 4;
+    width: min(640px, calc(100% - 32px));
+    background: color-mix(in srgb, var(--card) 72%, transparent); border: 1px solid var(--line); border-radius: 20px;
+    backdrop-filter: blur(10px); padding: 10px 16px 12px; box-shadow: 0 12px 30px -18px rgba(0,0,0,.6); }
+  .mission-strip-now { display: flex; align-items: center; gap: 10px; }
+  .mission-strip-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; }
+  .mission-strip-dot.thinking, .mission-strip-dot.executing { background: var(--thinking); box-shadow: 0 0 8px var(--thinking); }
+  .mission-strip-dot.waiting { background: var(--waiting); box-shadow: 0 0 8px var(--waiting); }
+  .mission-strip-dot.done { background: var(--done); }
+  .mission-strip-dot.error { background: var(--error); box-shadow: 0 0 8px var(--error); }
+  .mission-strip-now-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .mission-strip-label { font-size: 13.5px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mission-strip-sub { font-size: 11px; color: var(--muted); }
+  .mission-strip-clock { font-family: var(--mono); font-size: 12px; color: var(--muted); flex: none; }
+  .mission-strip-queue { display: flex; gap: 6px; margin-top: 9px; overflow-x: auto; padding-bottom: 1px; }
+  .mission-strip-queue::-webkit-scrollbar { height: 4px; }
+  .ms-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--card-hi); font-size: 11px; color: var(--muted);
+    white-space: nowrap; cursor: pointer; flex: none; }
+  .ms-chip:hover { border-color: var(--faint); color: var(--ink); }
+  .ms-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: none; }
+  .ms-chip.running { border-color: var(--thinking); color: var(--thinking); box-shadow: 0 0 10px -4px var(--thinking); }
+  .ms-chip.running .ms-chip-dot { background: var(--thinking); }
+  .ms-chip.done .ms-chip-dot { background: var(--done); }
+  .ms-chip.error .ms-chip-dot { background: var(--error); }
+  .mission-strip-empty { font-size: 11px; color: var(--faint); }
+  @media (max-width: 900px) { .mission-strip { top: 10px; width: calc(100% - 20px); } }
+  #empty { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); color: var(--muted); font-size: 13px; pointer-events: none; }
+
+  .node { position: absolute; left: 0; top: 0; background: radial-gradient(130% 160% at 12% -20%, var(--card-hi), var(--card)); border: 1px solid var(--line); border-radius: 26px; padding: 14px 18px; cursor: pointer; backdrop-filter: blur(6px); box-shadow: 0 8px 20px -12px rgba(0,0,0,.65); transition: border-color .3s, box-shadow .3s, opacity .4s; }
+  .node:hover { border-color: var(--faint); }
   .node.selected { border-color: var(--ink); }
   .node .row { display: flex; align-items: center; gap: 8px; }
   .node .name { font-weight: 600; font-size: 15px; text-transform: capitalize; }
@@ -80,163 +285,316 @@
   .node[data-status="waiting"] .st i { background: var(--waiting); }
   .node[data-status="done"] .st i { background: var(--done); }
   .node[data-status="error"] .st i { background: var(--error); }
-  .node[data-status="thinking"], .node[data-status="executing"] { animation: breathe 2.4s ease-in-out infinite; }
+  .node[data-status="thinking"]:not(.agent):not(.subagent), .node[data-status="executing"]:not(.agent):not(.subagent) { animation: breathe 2.4s ease-in-out infinite; }
   .node[data-status="executing"] { --glow: var(--executing); }
   .node[data-status="thinking"] { --glow: var(--thinking); }
-  @keyframes breathe { 0%,100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 22px -4px var(--glow); } }
-  .node.flash { box-shadow: 0 0 0 3px var(--flash, var(--done)); }
+  @keyframes breathe { 0%,100% { box-shadow: 0 0 8px -2px var(--glow); } 50% { box-shadow: 0 0 28px -3px var(--glow); } }
+  .node[data-status="waiting"]:not(.agent):not(.subagent) { box-shadow: 0 0 14px -4px var(--waiting); }
+  .node[data-status="error"]:not(.agent):not(.subagent) { box-shadow: 0 0 14px -4px var(--error); }
+  .node.flash { animation: ping .55s ease-out; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--flash, var(--done)) 70%, transparent), 0 0 0 0 transparent; }
+    100% { box-shadow: 0 0 0 3px transparent, 0 0 26px 4px var(--flash, var(--done)); } }
   .node.overdue::after { content: "\23F1"; position: absolute; top: -8px; right: -8px; width: 18px; height: 18px;
     border-radius: 50%; background: var(--error); color: #fff; font-size: 10px; line-height: 18px; text-align: center; }
-
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
-  .overlay .box { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; width: min(420px, 90vw); max-height: 80vh; overflow-y: auto; }
-  .overlay h2 { margin: 0 0 12px; font-size: 15px; }
-  .overlay .row2 { display: flex; gap: 8px; margin-top: 12px; }
-  .overlay ul { list-style: none; margin: 0; padding: 0; }
-  .overlay li { padding: 8px 0; border-bottom: 1px solid var(--grid); font-size: 13px; cursor: pointer; }
-  .overlay li:hover { color: var(--thinking); }
-  .overlay textarea { width: 100%; min-height: 80px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; padding: 8px; resize: vertical; box-sizing: border-box; }
-  .tmpl { margin: 4px 4px 0 0; }
-  .overlay .box.wide { width: min(560px, 94vw); }
-
-  .node.mission { border-radius: 999px; padding: 12px 22px; text-align: center; }
-  .node.mission .name { text-transform: none; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .node.agent[data-status="idle"] { opacity: .78; }
-  .node.tool { padding: 8px 12px; border-radius: 8px; }
+  .node .collapse-toggle { position: absolute; top: 12px; right: 14px; border: none; background: transparent; cursor: pointer; padding: 0; font-size: 11px; color: var(--muted); line-height: 1; z-index: 1; }
+  .node.search-dim { opacity: .22; }
+  /* Agent/subagent nodes, like .hub below, are icon-only: no card chrome (no background/border/
+     box-shadow), just the badge sitting directly on the canvas. Each agent still carries its own
+     identity color (--agent-accent, set inline by JS from AGENT_COLOR) via the icon badge's own
+     glow (see .icon-badge) -- that's what's left to distinguish "who" now that the card is gone,
+     with hover (title attr) covering name/status/detail instead of on-card text. */
+  .node.agent, .node.subagent, .node.hub {
+    display: flex; align-items: center; justify-content: center; padding: 0;
+    background: none; border: none; box-shadow: none; backdrop-filter: none;
+  }
+  .node.agent[data-status="idle"], .node.subagent[data-status="idle"] { opacity: .78; }
+  .node.tool { padding: 8px 16px; border-radius: 999px; }
   .node.tool .detail { margin-top: 0; }
   .node.tool .st { margin-top: 3px; font-size: 12px; }
   .node.approval { border-width: 1.5px; }
   .node.approval .actions { display: flex; gap: 8px; margin-top: 10px; }
-  .node.approval .actions button { flex: 1; border-radius: 7px; padding: 6px 0; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--line); background: transparent; }
+  .node.approval .actions button { flex: 1; border-radius: 999px; padding: 7px 0; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--line); background: transparent; }
   .node.approval .actions .yes { background: var(--waiting); color: #1d1405; border-color: var(--waiting); }
   .node.approval .actions button[disabled] { opacity: .45; cursor: not-allowed; }
 
-  .particle { fill: var(--thinking); }
+  .icon-badge { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px;
+    border-radius: 18px; flex: none; font-size: 32px; background: color-mix(in srgb, var(--agent-accent, var(--glow, var(--thinking))) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--agent-accent, var(--glow, var(--thinking))) 55%, transparent);
+    box-shadow: 0 0 14px -2px var(--agent-accent, var(--glow, var(--thinking))); }
+  /* Icon-only nodes have no card border to show .selected on (see .node.agent/.subagent), so the
+     badge itself gets a ring instead. */
+  .node.selected .icon-badge { box-shadow: 0 0 0 2px var(--ink), 0 0 14px -2px var(--agent-accent, var(--glow, var(--thinking))); }
+  .icon-badge.hub-badge { width: 92px; height: 92px; border-radius: 20px; background: rgba(255,255,255,.04); box-shadow: none;
+    border-color: color-mix(in srgb, #5ecdf2 30%, transparent);
+    filter: drop-shadow(-2px 0 5px #ff6ec7) drop-shadow(2px 0 5px #5ecdf2);
+    animation: hbBadgeBreathe 3s ease-in-out infinite; }
+  .icon-badge.hub-badge svg { display: block; }
+  @keyframes hbBadgeBreathe {
+    0%, 100% { filter: drop-shadow(-2px 0 5px #ff6ec7) drop-shadow(2px 0 5px #5ecdf2); }
+    50% { filter: drop-shadow(-3px 0 9px #ff6ec7) drop-shadow(3px 0 9px #5ecdf2); }
+  }
+  /* "brain or cpu chip animated shape" -- the brain strokes pulse like neurons firing in
+     sequence, the chip pins flicker like data ticking through, the core breathes. */
+  .hub-badge .hb-fold { animation: hbNeuron 2.2s ease-in-out infinite; }
+  .hub-badge .hb-fold-2 { animation-delay: .5s; }
+  .hub-badge .hb-fold-3 { animation-delay: 1s; }
+  @keyframes hbNeuron { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+  .hub-badge .hb-pin { animation: hbFlicker 1.6s steps(2, end) infinite; }
+  .hub-badge .hb-pin-2 { animation-delay: .25s; }
+  .hub-badge .hb-pin-3 { animation-delay: .5s; }
+  .hub-badge .hb-pin-4 { animation-delay: .75s; }
+  @keyframes hbFlicker { 0%, 50% { opacity: .35; } 55%, 100% { opacity: 1; } }
+  .hub-badge .hb-core { animation: hbCore 2.2s ease-in-out infinite; }
+  @keyframes hbCore { 0%, 100% { stroke-opacity: .5; } 50% { stroke-opacity: 1; } }
+
+  .particle { fill: var(--thinking); filter: url(#glow-strong); }
   .particle.exec { fill: var(--executing); }
   .particle.result { fill: var(--done); }
   .particle.approval { fill: var(--waiting); }
   .particle.error { fill: var(--error); }
 
-  #recenter { position: absolute; right: 16px; bottom: 16px; }
-  #empty { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); color: var(--muted); font-size: 13px; pointer-events: none; }
-
-  aside { border-left: 1px solid var(--grid); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
-  #inspector { padding: 16px 18px; border-bottom: 1px solid var(--grid); min-height: 120px; }
-  #inspector h2, #feed h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 10px; }
-  #inspector .big { font-size: 17px; font-weight: 600; text-transform: capitalize; }
-  #inspector dl { display: grid; grid-template-columns: 70px 1fr; gap: 6px 10px; margin: 12px 0 0; font-size: 13px; }
-  #inspector dt { color: var(--muted); }
-  #inspector dd { margin: 0; overflow-wrap: anywhere; }
-  #inspector code { font-family: var(--mono); font-size: 12px; }
-  #feed { padding: 16px 18px; overflow-y: auto; min-height: 0; }
-  #feed ol { list-style: none; margin: 0; padding: 0; }
-  #feed li { display: grid; grid-template-columns: 58px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--grid); font-size: 13px; line-height: 1.4; }
-  #feed time { font-family: var(--mono); font-size: 11.5px; color: var(--faint); padding-top: 1px; }
-  #feed b { font-weight: 600; text-transform: capitalize; margin-right: 4px; }
-  #feed li[data-tone="error"] b { color: var(--error); }
-  #feed li[data-tone="approval"] b { color: var(--waiting); }
-  #feed li[data-tone="exec"] b { color: var(--executing); }
-  #feed li[data-tone="result"] b { color: var(--done); }
-  #feed li[data-tone="delegate"] b { color: var(--thinking); }
-
-  #auditList { list-style: none; margin: 0; padding: 0; }
-  #auditList li { display: grid; grid-template-columns: 58px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--grid); font-size: 12px; color: var(--muted); line-height: 1.4; }
-  #auditList time { font-family: var(--mono); font-size: 11.5px; color: var(--faint); padding-top: 1px; }
-
-  @media (max-width: 860px) {
-    body { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr 38vh; }
-    aside { border-left: 0; border-top: 1px solid var(--grid); }
-    #inspector { display: none; }
+  /* ---------- responsive ---------- */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { position: fixed; top: 0; bottom: 0; left: 0; width: 252px; z-index: 60; transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 40px rgba(0,0,0,.35); }
+    body.nav-open .sidebar { transform: none; }
+    .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 55; }
+    body.nav-open .scrim { display: block; }
+    #navToggle { display: inline-flex; }
+    .view { padding: 12px; }
+    .view-map { grid-template-columns: 1fr; grid-template-rows: 58vh minmax(0, 1fr); }
+    #sidePanel { border-left: 0; border-top: 1px solid var(--grid); }
+    .topbar { padding: 8px 12px; }
+    .top-right { gap: 6px; }
+  }
+  @media (max-width: 480px) {
+    .view-map { grid-template-rows: 50vh minmax(0, 1fr); }
     .clock { display: none; }
-    header { gap: 8px 10px; padding: 10px 14px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .node { animation: none !important; transition: none; }
+    .node.hub { animation: none !important; }
+    .icon-badge.hub-badge, .hub-badge .hb-fold, .hub-badge .hb-pin, .hub-badge .hb-core { animation: none !important; opacity: 1; }
+    .joint { animation: none !important; opacity: .7; }
+    #edges path.edge { animation: none !important; stroke-dasharray: none; }
+    #neuralBg { display: none; }
   }
 </style>
 </head>
 <body>
-<header>
-  <div class="mission">
-    <small id="missionSub">Current mission</small>
-    <h1 id="missionTitle">No active mission</h1>
-  </div>
-  <span class="clock" id="clock">00:00</span>
-  <button class="tbtn" id="replayBtn" disabled>Replay mission</button>
-  <button class="tbtn" id="historyBtn">History</button>
-  <button class="tbtn" id="newTaskBtn" hidden>New Task</button>
-  <button class="tbtn" id="agentsBtn">Agents</button>
-  <button class="tbtn" id="toolsBtn">Tools</button>
-  <button class="tbtn" id="healthBtn">Health</button>
-  <button class="tbtn" id="demoBtn" title="Toggle demo data on/off">Demo</button>
-  <button class="tbtn" id="notifyBtn" title="Notify me about approvals, failures, and mission completion">🔔 Notifications off</button>
-  <button class="tbtn" id="themeBtn" title="Cycle theme: system / dark / light">Theme: system</button>
-  <span class="conn" id="conn" data-s="connecting" role="status" aria-live="polite"><i></i><span>Connecting</span></span>
-  <span class="conn" id="healthBadge" data-s="error" hidden role="status" aria-live="polite"><i></i><span>Mission Control unreachable</span></span>
-  <button class="tbtn" id="logoutBtn" hidden></button>
-</header>
-<div id="budgetBanner" hidden role="alert"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="glow-soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow-strong" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="4.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 7v13l6-3 6 3 6-3V4l-6 3-6-3z"/><path d="M9 4v13"/><path d="M15 7v13"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+    <symbol id="i-task" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+    <symbol id="i-skills" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z"/></symbol>
+    <symbol id="i-health" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+    <symbol id="i-audit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></symbol>
+  </defs>
+</svg>
 
-<main id="stage" aria-label="Agent execution map">
-  <div id="world"><svg id="edges"></svg></div>
-  <button class="tbtn" id="recenter" hidden>Recenter map</button>
-  <div id="empty">Waiting for the Gateway to report activity</div>
-</main>
+<div class="layout">
+  <aside class="sidebar" id="sidebar" aria-label="Primary">
+    <div class="brand"><span class="logo">◆</span><span>Mission Control</span></div>
+    <nav class="nav">
+      <button class="nav-item active" data-view="map"><svg class="nav-ico" aria-hidden="true"><use href="#i-map"/></svg>Execution map</button>
+      <button class="nav-item" data-view="history"><svg class="nav-ico" aria-hidden="true"><use href="#i-history"/></svg>Mission history</button>
+      <button class="nav-item" data-view="tasks"><svg class="nav-ico" aria-hidden="true"><use href="#i-task"/></svg>New task</button>
+      <button class="nav-item" data-view="agents"><svg class="nav-ico" aria-hidden="true"><use href="#i-bot"/></svg>Agents</button>
+      <button class="nav-item" data-view="tools"><svg class="nav-ico" aria-hidden="true"><use href="#i-wrench"/></svg>Tools</button>
+      <button class="nav-item" data-view="skills"><svg class="nav-ico" aria-hidden="true"><use href="#i-skills"/></svg>Skills</button>
+      <button class="nav-item" data-view="health"><svg class="nav-ico" aria-hidden="true"><use href="#i-health"/></svg>Health</button>
+      <button class="nav-item" data-view="audit" id="auditNav" hidden><svg class="nav-ico" aria-hidden="true"><use href="#i-audit"/></svg>Audit log</button>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="conn" id="conn" data-s="connecting" role="status" aria-live="polite"><i></i><span>Connecting</span></span>
+      <span class="health-pill" id="healthBadge" hidden role="status" aria-live="polite"><i></i><span>Mission Control unreachable</span></span>
+      <button class="tbtn btn-sm" id="logoutBtn" hidden></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
 
-<aside>
-  <section id="inspector"><h2>Selected</h2><div id="inspBody" style="color:var(--muted);font-size:13px">Click any node to see what it's doing.</div></section>
-  <section id="feed"><h2>Activity</h2><input id="searchInput" placeholder="Filter by agent, tool, status, text…" aria-label="Filter the map and activity feed"><ol id="feedList" role="log" aria-live="polite" aria-relevant="additions"></ol></section>
-  <section id="auditSection" hidden><h2>Audit Log</h2><ol id="auditList"></ol></section>
-</aside>
+  <div class="shell">
+    <header class="topbar">
+      <div class="top-left">
+        <button class="tbtn" id="navToggle" aria-label="Toggle navigation"><svg aria-hidden="true"><use href="#i-menu"/></svg></button>
+        <div class="mission">
+          <small id="missionSub">Current mission</small>
+          <h1 id="missionTitle">No active mission</h1>
+        </div>
+      </div>
+      <div class="top-right">
+        <span class="clock" id="clock">00:00</span>
+        <button class="tbtn" id="replayBtn" disabled>Replay mission</button>
+        <button class="tbtn" id="newTaskBtn" hidden>New Task</button>
+        <button class="tbtn" id="demoBtn" title="Toggle demo data on/off">Demo</button>
+        <button class="tbtn" id="notifyBtn" title="Notify me about approvals, failures, and mission completion">🔔 Notifications off</button>
+        <button class="tbtn" id="themeBtn" title="Cycle theme: system / dark / light">Theme: system</button>
+      </div>
+    </header>
+    <div id="budgetBanner" hidden role="alert"></div>
 
-<div class="overlay" id="historyOverlay" hidden>
-  <div class="box">
-    <h2>Mission History</h2>
-    <ul id="historyList"><li style="color:var(--muted)">Loading…</li></ul>
-    <div class="row2"><button class="tbtn" id="historyClose">Close</button></div>
+    <main class="main">
+      <section class="view view-map" id="view-map" aria-label="Agent execution map view">
+        <div id="stage" aria-label="Agent execution map">
+          <canvas id="neuralBg" aria-hidden="true"></canvas>
+          <div id="world"><svg id="edges"></svg></div>
+          <button class="tbtn" id="recenter" hidden>Recenter map</button>
+          <div id="empty">Waiting for the Gateway to report activity</div>
+          <div class="mission-strip">
+            <div class="mission-strip-now">
+              <span class="mission-strip-dot" id="msNowDot"></span>
+              <div class="mission-strip-now-text">
+                <span class="mission-strip-label" id="msNowLabel">No active mission</span>
+                <span class="mission-strip-sub" id="msNowSub">Standing by</span>
+              </div>
+              <span class="mission-strip-clock" id="msNowClock">00:00</span>
+            </div>
+            <div class="mission-strip-queue" id="msQueue"><span class="mission-strip-empty">No missions recorded yet</span></div>
+          </div>
+          <div class="hud hud-tl" aria-hidden="true"><span class="hud-label">Agents active</span><span class="hud-value" id="hudAgentsVal">0</span></div>
+          <div class="hud hud-tr" aria-hidden="true"><span class="hud-label">Tool calls</span><span class="hud-value" id="hudToolsVal">0</span></div>
+          <div class="hud hud-bl" aria-hidden="true"><span class="hud-label">Mission clock</span><span class="hud-value" id="hudClockVal">00:00</span></div>
+        </div>
+        <aside class="side" id="sidePanel">
+          <section id="inspector"><h2>Selected</h2><div id="inspBody" style="color:var(--muted);font-size:13px">Click any node to see what it's doing.</div></section>
+          <section id="feed"><h2>Activity</h2><input id="searchInput" placeholder="Filter by agent, tool, status, text…" aria-label="Filter the map and activity feed"><ol id="feedList" role="log" aria-live="polite" aria-relevant="additions"></ol></section>
+        </aside>
+      </section>
+
+      <section class="view" id="historyOverlay" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2>Mission History</h2><div class="row-actions"><button class="tbtn btn-sm" id="historyClose">Back to map</button></div></div>
+          <div class="panel-body"><ul id="historyList" class="hist"><li class="hist-empty">Loading…</li></ul></div>
+        </div>
+      </section>
+
+      <section class="view" id="taskOverlay" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2>New Task</h2><div class="row-actions"><button class="tbtn btn-sm" id="taskClose">Cancel</button></div></div>
+          <div id="templateList" style="margin-top:8px"></div>
+          <textarea id="taskPrompt" placeholder="What should the orchestrator do?"></textarea>
+          <div id="taskErr" style="color:var(--error);font-size:13px;margin-top:6px;min-height:14px"></div>
+          <div class="row-actions" style="margin-top:10px"><button class="tbtn" id="taskSend">Send to orchestrator</button></div>
+        </div>
+      </section>
+
+      <section class="view" id="agentsOverlay" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2>Agents</h2><div class="row-actions"><button class="tbtn btn-sm" id="agentsSpawn">Spawn helper agent</button><button class="tbtn btn-sm" id="agentsClose">Back to map</button></div></div>
+          <div class="panel-body" id="spawnForm" hidden>
+            <div class="form-field grow">
+              <label for="spawnId">New agent id</label>
+              <input id="spawnId" name="agentId" placeholder="e.g. research-helper" autocomplete="off">
+            </div>
+            <div class="form-field grow">
+              <label for="spawnTask">Task for the new sub-agent</label>
+              <input id="spawnTask" name="prompt" placeholder="e.g. Investigate the failing service" autocomplete="off">
+            </div>
+            <div class="row-actions" style="align-self:end">
+              <button class="tbtn btn-sm" id="spawnSend" disabled>Spawn</button>
+              <button class="tbtn btn-sm" id="spawnCancel">Cancel</button>
+            </div>
+          </div>
+          <div class="panel-body" id="agentsList"></div>
+        </div>
+      </section>
+
+      <section class="view" id="toolsOverlay" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2>Tools</h2><div class="row-actions"><button class="tbtn btn-sm" id="toolsRefresh">Refresh</button><button class="tbtn btn-sm" id="toolsClose">Back to map</button></div></div>
+          <div class="panel-body" id="toolsList"></div>
+        </div>
+      </section>
+
+      <section class="view" id="skillsOverlay" hidden>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Skills</h2>
+            <div class="row-actions">
+              <button class="tbtn btn-sm" id="skillInstallBtn" hidden>Install skill</button>
+              <button class="tbtn btn-sm" id="skillsRefresh">Refresh</button>
+              <button class="tbtn btn-sm" id="skillsClose">Back to map</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="skillInstallForm" class="install-skills" hidden>
+              <div class="form-field">
+                <label for="skillName">Skill name</label>
+                <input id="skillName" name="name" placeholder="e.g. my-custom-skill" autocomplete="off">
+              </div>
+              <div class="form-field grow">
+                <label for="skillSource">Source (registry id or URL)</label>
+                <input id="skillSource" name="source" placeholder="e.g. registry, https://…/skill.tar.gz" autocomplete="off">
+              </div>
+              <div class="row-actions" style="align-self:end">
+                <button class="tbtn btn-sm" id="skillInstallSend" disabled>Install</button>
+                <button class="tbtn btn-sm" id="skillInstallCancel">Cancel</button>
+              </div>
+            </div>
+            <div id="skillsList"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="healthOverlay" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2>Mission Control Health</h2><div class="row-actions"><button class="tbtn btn-sm" id="healthRefresh">Refresh</button><button class="tbtn btn-sm" id="healthClose">Back to map</button></div></div>
+          <div class="panel-body" id="healthBody" style="font-size:13px;color:var(--muted)"></div>
+        </div>
+      </section>
+
+      <section class="view" id="auditOverlay" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2>Audit Log</h2><button class="tbtn btn-sm" id="auditClose">Back to map</button></div>
+          <div class="panel-body"><ol id="auditList"></ol></div>
+        </div>
+      </section>
+
+      <section class="view" id="agentConfigOverlay" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2>Configure agent</h2><div class="row-actions"><button class="tbtn btn-sm" id="agentCfgClose">Cancel</button></div></div>
+          <div class="panel-body" id="agentCfgForm"><p class="empty-cell center">Loading…</p></div>
+        </div>
+      </section>
+    </main>
   </div>
 </div>
-<div class="overlay" id="taskOverlay" hidden>
-  <div class="box">
-    <h2>New Task</h2>
-    <div id="templateList"></div>
-    <textarea id="taskPrompt" placeholder="What should the orchestrator do?"></textarea>
-    <div id="taskErr" style="color:var(--error);font-size:13px;margin-top:6px;min-height:14px"></div>
-    <div class="row2"><button class="tbtn" id="taskSend">Send</button><button class="tbtn" id="taskClose">Cancel</button></div>
-  </div>
-</div>
-<div class="overlay" id="agentsOverlay" hidden>
-  <div class="box wide">
-    <h2>Agents</h2>
-    <div id="agentsList"></div>
-    <div class="row2"><button class="tbtn" id="agentsSpawn">Spawn helper agent</button><button class="tbtn" id="agentsClose">Close</button></div>
-  </div>
-</div>
-<div class="overlay" id="toolsOverlay" hidden>
-  <div class="box wide">
-    <h2>Tools</h2>
-    <div id="toolsList"></div>
-    <div class="row2"><button class="tbtn" id="toolsRefresh">Refresh</button><button class="tbtn" id="toolsClose">Close</button></div>
-  </div>
-</div>
-<div class="overlay" id="healthOverlay" hidden>
-  <div class="box">
-    <h2>Mission Control Health</h2>
-    <div id="healthBody" style="font-size:13px;color:var(--muted)"></div>
-    <div class="row2"><button class="tbtn" id="healthRefresh">Refresh</button><button class="tbtn" id="healthClose">Close</button></div>
-  </div>
-</div>
+
+<script src="/vendor/gsap.min.js"></script>
 <script>
 (() => {
-  const EMOJI = { main: '🧠', sysadmin: '🛠️', devops: '🚀', security: '🛡️' };
+  const EMOJI = { main: '🧠', sysadmin: '🛠️', devops: '🚀', security: '🛡️', marketing: '📣', brainstorm: '💡', planner: '🗓️' };
+  // Per-agent identity color (icon badge + its connecting edge) -- "main" has no flat accent,
+  // it gets the two-tone brain/chip treatment (HUB_ICON_SVG, .node.hub / .hub-badge in CSS).
+  const AGENT_COLOR = { sysadmin: '#f0a23c', devops: '#5ee6a8', security: '#ff6b8b', marketing: '#e06bff', brainstorm: '#f2d94e', planner: '#5ec8f2' };
+  const HUB_ICON_SVG = `<span class="icon-badge hub-badge" aria-hidden="true"><svg viewBox="0 0 32 32" width="62" height="62">
+    <path class="hb-brain" d="M16 5c-4 0-6.5 2.4-6.5 5.6 0 1-.9 1.3-.9 2.9 0 1.3.8 1.9.8 2.7 0 1-.8 1.5-.8 2.8 0 3.4 2.9 5.8 7.4 5.8" fill="none" stroke="#ff6ec7" stroke-width="1.5" stroke-linecap="round"/>
+    <path class="hb-fold hb-fold-1" d="M15.6 8.4c1.1 1 1.1 2.2 0 3.2" stroke="#ff6ec7" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <path class="hb-fold hb-fold-2" d="M13.8 13c1 .5 1 1.7 0 2.4" stroke="#ff6ec7" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <path class="hb-fold hb-fold-3" d="M15.6 17.6c1.3.7 1.3 2 0 3" stroke="#ff6ec7" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <rect class="hb-chip" x="17" y="8" width="10.5" height="16" rx="2.4" fill="none" stroke="#5ecdf2" stroke-width="1.5"/>
+    <path class="hb-pin hb-pin-1" d="M20 8V6M24 8V6" stroke="#5ecdf2" stroke-width="1.2" stroke-linecap="round"/>
+    <path class="hb-pin hb-pin-2" d="M20 24v2M24 24v2" stroke="#5ecdf2" stroke-width="1.2" stroke-linecap="round"/>
+    <path class="hb-pin hb-pin-3" d="M27.5 12h2M27.5 16h2M27.5 20h2" stroke="#5ecdf2" stroke-width="1.2" stroke-linecap="round"/>
+    <path class="hb-pin hb-pin-4" d="M17 12h-2M17 16h-2M17 20h-2" stroke="#5ecdf2" stroke-width="1.2" stroke-linecap="round"/>
+    <rect class="hb-core" x="19.7" y="12" width="5" height="8" rx="1" fill="none" stroke="#5ecdf2" stroke-width="1.1"/>
+  </svg></span>`;
   const STATUS_TEXT = { idle: 'Standby', thinking: 'Thinking', executing: 'Running', waiting: 'Needs approval', done: 'Done', error: 'Failed' };
-  const SIZE = { mission: [300, 48], agent: [224, 96], subagent: [210, 90], tool: [230, 52], approval: [250, 124] };
+  const SIZE = { mission: [300, 48], agent: [222, 118], subagent: [206, 110], hub: [240, 104], tool: [230, 52], approval: [250, 124] };
   const HGAP = 56, VGAP = 88, COLGAP = 12;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const $ = id => document.getElementById(id);
   const stage = $('stage'), world = $('world'), svg = $('edges');
+  const neuralBg = $('neuralBg');
   const NS = 'http://www.w3.org/2000/svg';
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const state = { nodes: new Map(), mission: { label: 'No active mission', startedAt: null }, approvals: false, mode: 'connecting', selected: null, role: 'admin', collapsed: new Set() };
   const els = new Map();       // id -> { el, path }
@@ -244,6 +602,24 @@
   let view = { x: 0, y: 0, k: 1 }, userMoved = false;
   let recording = [], replaying = false, liveBuffer = [];
   let liveES = null;
+  let skillsCatalog = [];
+
+  // ---------- view router (sidebar -> main panels) ----------
+  const viewMap = {
+    map: $('view-map'), history: $('historyOverlay'), tasks: $('taskOverlay'),
+    agents: $('agentsOverlay'), tools: $('toolsOverlay'), skills: $('skillsOverlay'),
+    health: $('healthOverlay'), audit: $('auditOverlay'), agentConfig: $('agentConfigOverlay'),
+  };
+  let currentView = 'map';
+  function showView(name) {
+    currentView = name;
+    for (const [id, el] of Object.entries(viewMap)) el.hidden = id !== name;
+    for (const item of document.querySelectorAll('[data-view]')) item.classList.toggle('active', item.dataset.view === name);
+    document.body.classList.remove('nav-open');
+  }
+  $('navToggle').onclick = () => document.body.classList.toggle('nav-open');
+  $('scrim').onclick = () => document.body.classList.remove('nav-open');
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') document.body.classList.remove('nav-open'); });
 
   // ---------- state ops ----------
   function seed(nodes) {
@@ -258,6 +634,7 @@
     for (const o of ops) {
       if (o.op === 'mission') {
         state.mission = { label: o.label, startedAt: o.startedAt || Date.now() };
+        refreshMissionQueue();
         for (const [id, n] of state.nodes) {
           if (n.kind === 'tool' || n.kind === 'approval') { state.nodes.delete(id); }
           else if (n.kind === 'agent') { n.status = 'idle'; n.detail = ''; }
@@ -288,7 +665,7 @@
   const snapshotNodes = () => [...state.nodes.values()].map(n => ({ ...n }));
 
   // ---------- layout ----------
-  const sizeOf = n => SIZE[n.kind] || SIZE.agent;
+  const sizeOf = n => (n.parent === 'mission' ? SIZE.hub : SIZE[n.kind]) || SIZE.agent;
   function layout() {
     const kids = new Map();
     for (const n of state.nodes.values()) {
@@ -314,22 +691,86 @@
       const rowW = n._row.reduce((s, k) => s + k._L + k._R, 0) + Math.max(0, n._row.length - 1) * HGAP;
       n._L = Math.max(L, rowW / 2); n._R = Math.max(R, rowW / 2);
     };
-    const place = (n, cx, y) => {
+    const placeSelf = (n, cx, y) => {
       const [w, h] = sizeOf(n);
       n._tx = cx - w / 2; n._ty = y;
-      let colLeft = n._side ? cx + w / 2 + 44 : cx - w / 2 + 22;
+      // n's own tool/approval column hangs off its actual icon (see iconExtent) when n renders
+      // icon-only, not off the edges of its larger invisible layout box -- otherwise the column
+      // (and the spine connecting it) lands in empty space, disconnected from the visible badge.
+      // It also hangs on the side AWAY from n's parent: the parent<->n edge, and (in a wide
+      // fan-out) every sibling's own edge back to that same parent, runs through the space on
+      // n's parent-facing side, so a tool column growing there -- e.g. several running tasks
+      // stacking up -- eventually grows right into those curves. Hanging away keeps it clear
+      // regardless of how tall it gets.
+      const icon = iconExtent(n);
+      const halfW = icon ? icon[0] / 2 : w / 2;
+      const parent = n.parent && state.nodes.get(n.parent);
+      const parentCx = parent && parent._tx !== undefined ? parent._tx + sizeOf(parent)[0] / 2 : cx - 1;
+      const hangLeft = cx <= parentCx;
+      let colLeft = n._side ? cx + halfW + 44 : (hangLeft ? cx - halfW - 4 - SIZE.tool[0] : cx + halfW + 4);
       let cy = n._side ? y : y + h + 26;
-      for (const k of n._col) { k._tx = colLeft; k._ty = cy; k._spine = colLeft - 16; cy += sizeOf(k)[1] + COLGAP; }
+      for (const k of n._col) { k._tx = colLeft; k._ty = cy; k._spine = icon ? cx : (hangLeft ? colLeft + SIZE.tool[0] + 16 : colLeft - 16); cy += sizeOf(k)[1] + COLGAP; }
+      return cy;
+    };
+    // Fan a node's direct agent/subagent children in an arc below it (hub-and-spoke) instead of
+    // a flat row -- applies recursively, so both the mission hub and each agent's own subagents
+    // branch out this way. A single child just goes straight down, same as before. The arc always
+    // stays in the lower hemisphere so a branch's own subtree keeps growing further from its
+    // parent instead of doubling back over it or a neighboring spoke, and its radius is derived
+    // from how much horizontal room the children need so same-size cards never overlap.
+    const place = (n, cx, y) => {
+      const [w, h] = sizeOf(n);
+      const cyEnd = placeSelf(n, cx, y);
       let rowY = y + h + VGAP;
       if (n._side) rowY = Math.max(rowY, y + n._colH + 40);
-      else if (n._col.length) rowY = cy + 40;
-      const rowW = n._row.reduce((s, k) => s + k._L + k._R, 0) + Math.max(0, n._row.length - 1) * HGAP;
-      let x = cx - rowW / 2;
-      for (const k of n._row) { place(k, x + k._L, rowY); x += k._L + k._R + HGAP; }
+      else if (n._col.length) rowY = cyEnd + 40;
+      const agents = n._row;
+      if (!agents.length) return;
+      if (agents.length === 1) { place(agents[0], cx, rowY); return; }
+      if (agents.length >= 5) {
+        // Wide fan-out (e.g. the hub with many agents): split into two stacks flanking the
+        // parent left/right instead of arcing everything below it, which gets cramped past
+        // ~4 siblings. edgePath() below detects this (mostly-horizontal offset) and curves
+        // out from the parent's side instead of its bottom.
+        const originY = y + h / 2;
+        const mid = Math.ceil(agents.length / 2);
+        const sideGapX = Math.max(240, w / 2 + 170);
+        const placeSide = (list, dir) => {
+          // Reserve room for each sibling's own tool column (stacked below it) too, or the next
+          // sibling in this lane lands on top of it.
+          const spans = list.map(k => sizeOf(k)[1] + (k._col.length ? k._colH + 40 : 0));
+          const totalH = spans.reduce((s, v) => s + v, 0) + Math.max(0, list.length - 1) * VGAP * 0.5;
+          let ty = originY - totalH / 2;
+          list.forEach((k, i) => {
+            const [kw] = sizeOf(k);
+            place(k, cx + dir * (sideGapX + kw / 2), ty);
+            ty += spans[i] + VGAP * 0.5;
+          });
+        };
+        placeSide(agents.slice(0, mid), -1);
+        placeSide(agents.slice(mid), 1);
+        return;
+      }
+      const spreadDeg = Math.min(150, 36 + 22 * (agents.length - 1));
+      const startDeg = 90 - spreadDeg / 2;
+      const rowW = agents.reduce((s, k) => s + k._L + k._R, 0) + (agents.length - 1) * HGAP;
+      const halfRad = (spreadDeg / 2) * Math.PI / 180;
+      const R = Math.max(160, (rowW / 2) / Math.max(0.42, Math.sin(halfRad)));
+      const originY = y + h / 2;
+      agents.forEach((k, i) => {
+        const deg = startDeg + (spreadDeg * i) / (agents.length - 1);
+        const rad = deg * Math.PI / 180;
+        const [kw, kh] = sizeOf(k);
+        const kcx = cx + R * Math.cos(rad);
+        const kcyCenter = originY + R * Math.sin(rad);
+        place(k, kcx, Math.max(rowY, kcyCenter - kh / 2));
+      });
     };
     const root = state.nodes.get('mission');
     if (!root) return;
-    measure(root); place(root, 0, 0);
+    measure(root);
+    const hub = root._row[0]; // "main" -- mission's sole direct child (see graph.js) is now the visual hub
+    if (hub) place(hub, 0, 0); else placeSelf(root, 0, 0);
     for (const n of state.nodes.values()) if (n._tx === undefined) { n._tx = 0; n._ty = -200; }
   }
 
@@ -342,27 +783,31 @@
     return `${n.label || n.id} agent, ${status}${n.detail ? ', ' + n.detail : ''}`;
   }
   function nodeHtml(n) {
-    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    const st = `<div class="st"><i></i>${STATUS_TEXT[n.status] || n.status}</div>`;
-    if (n.kind === 'mission') return `<div class="name" title="${esc(n.label)}">🎯 ${esc(n.label)}</div>`;
-    if (n.kind === 'tool') return `<div class="detail" title="${esc(n.label)}">${esc(n.label)}</div>${st}`;
-    if (n.kind === 'approval') {
+    if (n.kind === 'tool' || n.kind === 'approval') {
+      const st = `<div class="st"><i></i>${STATUS_TEXT[n.status] || n.status}</div>`;
+      if (n.kind === 'tool') return `<div class="detail" title="${esc(n.label)}">${esc(n.label)}</div>${st}`;
       const dis = n.status !== 'waiting' || (!state.approvals && state.mode !== 'demo') ? 'disabled' : '';
       const note = !state.approvals && state.mode !== 'demo' && n.status === 'waiting' ? '<div class="meta">Read-only: approve in OpenClaw</div>' : '';
       return `<div class="row"><span class="name" style="text-transform:none">Approval</span></div>${st}
         <div class="detail" title="${esc(n.label)}">${esc(n.label)}</div>
         ${n.status === 'waiting' ? `<div class="actions"><button class="yes" data-act="approve" ${dis}>Approve</button><button data-act="reject" ${dis}>Reject</button></div>${note}` : `<div class="meta">${esc(n.detail)}</div>`}`;
     }
+    if (n.parent === 'mission') return HUB_ICON_SVG; // the hub -- icon only, no label/status/detail
+    // Every other agent/subagent is icon-only too, matching the hub -- name/status/detail move to
+    // the node's title tooltip (see render()) instead of on-card text. The collapse toggle survives
+    // since it's a functional control, not card chrome.
     const name = n.label || n.id;
     const emoji = EMOJI[name] || '🤖';
     const kidCount = [...state.nodes.values()].filter(k => k.parent === n.id).length;
-    const counts = [...state.nodes.values()].filter(k => k.parent === n.id && k.kind === 'tool').length;
     const collapsed = state.collapsed.has(n.id);
     const toggleLabel = `${collapsed ? 'Expand' : 'Collapse'} subtree`;
     const toggle = kidCount ? `<button class="collapse-toggle" data-collapse="${esc(n.id)}" title="${toggleLabel}" aria-label="${toggleLabel}">${collapsed ? '▸' : '▾'}</button>` : '';
-    return `<div class="row">${toggle}<span>${emoji}</span><span class="name">${esc(name)}</span></div>${st}
-      <div class="detail">${esc(n.detail || '')}&nbsp;</div>
-      <div class="meta">${esc(n.model || '')}${n.model && counts ? '  •  ' : ''}${counts ? counts + (counts === 1 ? ' tool call' : ' tool calls') : ''}${collapsed && kidCount ? ` · ${kidCount} hidden` : ''}</div>`;
+    return `${toggle}<span class="icon-badge">${emoji}</span>`;
+  }
+  function agentAccent(n) {
+    if (n.kind !== 'agent' && n.kind !== 'subagent') return null;
+    if (n.parent === 'mission') return null; // the hub -- two-tone glow, not a flat accent
+    return AGENT_COLOR[n.label || n.id] || null;
   }
   function isHidden(n) {
     let cur = n;
@@ -377,7 +822,7 @@
     layout();
     const seen = new Set();
     for (const n of state.nodes.values()) {
-      if (isHidden(n)) continue;
+      if (n.kind === 'mission' || isHidden(n)) continue;
       seen.add(n.id);
       let rec = els.get(n.id);
       const [w, h] = sizeOf(n);
@@ -391,47 +836,128 @@
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNodeClick(n.id, e); }
         });
         const path = document.createElementNS(NS, 'path'); path.setAttribute('class', 'edge');
-        svg.appendChild(path);
+        const joint = document.createElementNS(NS, 'circle'); joint.setAttribute('class', 'joint'); joint.setAttribute('r', 2.6); joint.style.opacity = 0;
+        const edgeColor = agentAccent(n);
+        if (edgeColor) { path.style.setProperty('--edge-accent', edgeColor); joint.style.setProperty('--edge-accent', edgeColor); }
+        svg.appendChild(path); svg.appendChild(joint);
         const parent = n.parent && state.nodes.get(n.parent);
-        rec = { el, path, x: parent?._x ?? n._tx, y: parent?._y ?? n._ty };
+        rec = { el, path, joint, scale: 1, x: parent?._x ?? n._tx, y: parent?._y ?? n._ty };
         if (n.kind !== 'mission' && parent) { rec.x = parent._tx + 20; rec.y = parent._ty + 20; }
         els.set(n.id, rec); world.appendChild(el);
+        if (!reduced && typeof gsap !== 'undefined') { rec.scale = 0.82; gsap.to(rec, { scale: 1, duration: 0.5, ease: 'back.out(1.6)' }); }
       }
-      rec.el.className = `node ${n.kind}${state.selected === n.id ? ' selected' : ''}`;
+      rec.el.className = `node ${n.kind}${n.parent === 'mission' ? ' hub' : ''}${state.selected === n.id ? ' selected' : ''}`;
+      const accent = agentAccent(n);
+      if (accent) rec.el.style.setProperty('--agent-accent', accent); else rec.el.style.removeProperty('--agent-accent');
       rec.el.dataset.status = n.status;
       rec.el.setAttribute('aria-label', ariaLabelFor(n));
       rec.el.style.width = w + 'px';
       if (n.kind !== 'approval') rec.el.style.height = h + 'px'; else rec.el.style.minHeight = h + 'px';
       const html = nodeHtml(n);
       if (rec.html !== html) { rec.el.innerHTML = html; rec.html = html; }
+      // With cards gone (see .node.agent/.subagent/.hub icon-only styling), name/status/detail
+      // that used to sit on the card now surface on hover instead.
+      rec.el.title = (n.kind === 'agent' || n.kind === 'subagent')
+        ? `${n.label || bareId(n.id)} — ${STATUS_TEXT[n.status] || n.status}${n.detail ? ': ' + n.detail : ''}`
+        : '';
       rec.path.classList.toggle('hot', n.status === 'thinking' || n.status === 'executing');
+      rec.joint.classList.toggle('hot', n.status === 'thinking' || n.status === 'executing');
     }
-    for (const [id, rec] of els) if (!seen.has(id)) { rec.el.remove(); rec.path.remove(); els.delete(id); }
+    for (const [id, rec] of els) if (!seen.has(id)) { rec.el.remove(); rec.path.remove(); rec.joint.remove(); els.delete(id); }
     $('missionTitle').textContent = state.mission.label;
     $('missionSub').textContent = state.mission.startedAt ? (replaying ? 'Replaying mission' : 'Current mission') : 'Standing by';
     $('replayBtn').disabled = replaying || recording.length < 2;
+    updateMissionStrip();
     $('empty').hidden = state.mission.startedAt || [...state.nodes.values()].some(n => n.status !== 'idle');
+    updateHud();
     if (state.selected) inspect(state.selected);
-    if (!$('agentsOverlay').hidden) renderAgents();
+    if (currentView === 'agents') renderAgents();
     applySearchFilter();
     if (!userMoved) fit();
   }
 
+  // Agent/subagent nodes (including the hub) render icon-only now (see .node.agent/.subagent/.hub),
+  // but still lay out inside a larger invisible box (sizeOf) for spacing. Edges anchoring to the
+  // box's edges would land in that empty margin, well short of the visible badge -- this returns
+  // the badge's actual footprint (centered in the box) so anchors can hug it instead.
+  const HUB_ICON = 92, AGENT_ICON = 64;
+  function iconExtent(node) {
+    if (!node || (node.kind !== 'agent' && node.kind !== 'subagent')) return null;
+    const s = node.parent === 'mission' ? HUB_ICON : AGENT_ICON;
+    return [s, s];
+  }
   function edgePath(n, x, y) {
     const p = state.nodes.get(n.parent); const pr = p && els.get(p.id);
     if (!p || !pr) return '';
     const [pw, ph] = sizeOf(p); const [w, h] = sizeOf(n);
+    const [paw, pah] = iconExtent(p) || [pw, ph];
+    const [naw, nah] = iconExtent(n) || [w, h];
     if (n.kind === 'tool' || n.kind === 'approval') {
       const sx = n._spine + (x - n._tx);
       const my = y + h / 2;
       const r = 8;
-      const start = p._side ? `M ${pr.x + pw} ${pr.y + 30} H ${sx - r} Q ${sx} ${pr.y + 30} ${sx} ${pr.y + 30 + r}` : `M ${sx} ${pr.y + ph}`;
+      const start = p._side ? `M ${pr.x + (pw + paw) / 2} ${pr.y + 30} H ${sx - r} Q ${sx} ${pr.y + 30} ${sx} ${pr.y + 30 + r}` : `M ${sx} ${pr.y + (ph + pah) / 2}`;
       return `${start} V ${my - r} Q ${sx} ${my} ${sx + r} ${my} H ${x}`;
     }
-    const x1 = pr.x + pw / 2, y1 = pr.y + ph, x2 = x + w / 2, y2 = y;
+    // Most parent/child pairs are vertical (child sits below), so exit the parent's bottom edge
+    // and enter the child's top edge. The left/right split above places children beside their
+    // parent instead -- detect that (a mostly-horizontal offset) and curve out of the facing
+    // side edge instead, so the line doesn't dip below the parent before going sideways.
+    const pcx = pr.x + pw / 2, pcy = pr.y + ph / 2, ccx = x + w / 2, ccy = y + h / 2;
+    if (Math.abs(ccx - pcx) > Math.abs(ccy - pcy)) {
+      const dir = ccx > pcx ? 1 : -1;
+      const x1 = pcx + dir * (paw / 2), y1 = pcy, x2 = ccx - dir * (naw / 2), y2 = ccy;
+      const c = Math.max(30, Math.abs(x2 - x1) * 0.4);
+      return `M ${x1} ${y1} C ${x1 + dir * c} ${y1} ${x2 - dir * c} ${y2} ${x2} ${y2}`;
+    }
+    const x1 = pcx, y1 = pcy + pah / 2, x2 = ccx, y2 = ccy - nah / 2;
     const c = Math.max(30, (y2 - y1) * 0.5);
     return `M ${x1} ${y1} C ${x1} ${y1 + c} ${x2} ${y2 - c} ${x2} ${y2}`;
   }
+
+  // ---------- ambient backdrop: slow-drifting green aurora glow, dark + green per spec, kept
+  // soft/out-of-focus so it reads as atmosphere behind the graph rather than a foreground effect
+  // (the earlier matrix-rain attempt was technically running but too faint against the UI to
+  // register as an animation at all) ----------
+  const nbx = neuralBg.getContext('2d');
+  let auroraBlobs = [];
+  function nbResize() {
+    const w = stage.clientWidth, h = stage.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    neuralBg.width = Math.max(1, w * dpr); neuralBg.height = Math.max(1, h * dpr);
+    neuralBg.style.width = w + 'px'; neuralBg.style.height = h + 'px';
+    nbx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    nbx.clearRect(0, 0, w, h);
+    const count = reduced ? 0 : 4;
+    auroraBlobs = Array.from({ length: count }, (_, i) => ({
+      x: Math.random() * w, y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 16, vy: (Math.random() - 0.5) * 16,
+      r: Math.min(w, h) * (0.22 + Math.random() * 0.16),
+      phase: Math.random() * Math.PI * 2,
+    }));
+  }
+  let auLast = 0;
+  function nbFrame(now) {
+    if (!auroraBlobs.length) return;
+    const w = stage.clientWidth, h = stage.clientHeight;
+    const dt = auLast ? Math.min(0.05, (now - auLast) / 1000) : 0.016;
+    auLast = now;
+    nbx.clearRect(0, 0, w, h);
+    nbx.globalCompositeOperation = 'lighter'; // overlapping blobs brighten instead of stacking flat
+    for (const b of auroraBlobs) {
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.x < -b.r || b.x > w + b.r) b.vx *= -1;
+      if (b.y < -b.r || b.y > h + b.r) b.vy *= -1;
+      const pulse = 0.85 + Math.sin(now / 1600 + b.phase) * 0.15;
+      const g = nbx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r * pulse);
+      g.addColorStop(0, 'rgba(70,220,150,.10)');
+      g.addColorStop(1, 'rgba(70,220,150,0)');
+      nbx.fillStyle = g;
+      nbx.beginPath(); nbx.arc(b.x, b.y, b.r * pulse, 0, Math.PI * 2); nbx.fill();
+    }
+    nbx.globalCompositeOperation = 'source-over';
+  }
+  nbResize();
+  if (reduced) nbFrame(performance.now()); // draw one static frame, then leave it be
 
   function frame(now) {
     const ease = reduced ? 1 : 0.16;
@@ -440,12 +966,20 @@
       rec.x += (n._tx - rec.x) * ease; rec.y += (n._ty - rec.y) * ease;
       if (Math.abs(n._tx - rec.x) < 0.3) rec.x = n._tx;
       if (Math.abs(n._ty - rec.y) < 0.3) rec.y = n._ty;
-      rec.el.style.transform = `translate(${rec.x}px, ${rec.y}px)`;
+      rec.el.style.transform = `translate(${rec.x}px, ${rec.y}px) scale(${rec.scale ?? 1})`;
     }
     for (const n of state.nodes.values()) {
       const rec = els.get(n.id); if (!rec) continue;
       const d = edgePath(n, rec.x, rec.y);
-      if (rec.d !== d) { rec.path.setAttribute('d', d); rec.d = d; }
+      if (rec.d !== d) {
+        rec.path.setAttribute('d', d); rec.d = d;
+        if (d) {
+          const len = rec.path.getTotalLength();
+          const mid = rec.path.getPointAtLength(len * 0.5);
+          rec.joint.setAttribute('cx', mid.x); rec.joint.setAttribute('cy', mid.y);
+          rec.joint.style.opacity = 1;
+        } else rec.joint.style.opacity = 0;
+      }
     }
     // particles
     for (let i = particles.length - 1; i >= 0; i--) {
@@ -464,6 +998,7 @@
       });
     }
     world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`;
+    if (!reduced) nbFrame(now);
     requestAnimationFrame(frame);
   }
 
@@ -489,7 +1024,10 @@
   // ---------- view ----------
   function bounds() {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const n of state.nodes.values()) { const [w, h] = sizeOf(n); x0 = Math.min(x0, n._tx); y0 = Math.min(y0, n._ty); x1 = Math.max(x1, n._tx + w); y1 = Math.max(y1, n._ty + h); }
+    for (const n of state.nodes.values()) {
+      if (n.kind === 'mission') continue; // never rendered -- its off-screen anchor position shouldn't skew the fit
+      const [w, h] = sizeOf(n); x0 = Math.min(x0, n._tx); y0 = Math.min(y0, n._ty); x1 = Math.max(x1, n._tx + w); y1 = Math.max(y1, n._ty + h);
+    }
     return { x0, y0, x1, y1 };
   }
   function fit() {
@@ -512,7 +1050,7 @@
   }, { passive: false });
   const setMoved = () => { userMoved = true; $('recenter').hidden = false; };
   $('recenter').onclick = () => { userMoved = false; $('recenter').hidden = true; fit(); };
-  addEventListener('resize', () => { if (!userMoved) fit(); });
+  addEventListener('resize', () => { if (!userMoved) fit(); nbResize(); });
 
   // ---------- inspector, feed, clock ----------
   function onNodeClick(id, e) {
@@ -530,7 +1068,6 @@
     const n = state.nodes.get(id);
     const body = $('inspBody');
     if (!n) { body.textContent = 'That node has left the map.'; return; }
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const kids = [...state.nodes.values()].filter(k => k.parent === id);
     const rows = [
       ['Status', STATUS_TEXT[n.status] || n.status],
@@ -577,8 +1114,59 @@
   }
   setInterval(() => {
     const s = state.mission.startedAt ? Math.floor((Date.now() - state.mission.startedAt) / 1000) : 0;
-    $('clock').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    const clockText = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    $('clock').textContent = clockText;
+    const hc = $('hudClockVal'); if (hc) hc.textContent = clockText;
+    const mc = $('msNowClock'); if (mc) mc.textContent = clockText;
   }, 500);
+
+  // ---------- HUD corner readouts (agents active / tool calls), GSAP count-up when available ----------
+  const hudCounts = new WeakMap();
+  function animateHudCount(el, val) {
+    if (!el) return;
+    const prev = hudCounts.get(el) ?? 0;
+    if (prev === val) return;
+    hudCounts.set(el, val);
+    if (reduced || typeof gsap === 'undefined') { el.textContent = val; return; }
+    const obj = { v: prev };
+    gsap.to(obj, { v: val, duration: 0.6, ease: 'power2.out', onUpdate: () => { el.textContent = Math.round(obj.v); } });
+  }
+  function updateHud() {
+    let agents = 0, tools = 0;
+    for (const n of state.nodes.values()) {
+      if ((n.kind === 'agent' || n.kind === 'subagent') && (n.status === 'thinking' || n.status === 'executing')) agents++;
+      else if (n.kind === 'tool') tools++;
+    }
+    animateHudCount($('hudAgentsVal'), agents);
+    animateHudCount($('hudToolsVal'), tools);
+  }
+  function updateMissionStrip() {
+    const dot = $('msNowDot'), label = $('msNowLabel'), sub = $('msNowSub');
+    if (!dot) return;
+    const hubNode = [...state.nodes.values()].find(n => n.parent === 'mission');
+    const activeStatus = state.mission.startedAt ? (hubNode?.status || 'thinking') : 'idle';
+    dot.className = `mission-strip-dot ${activeStatus}`;
+    label.textContent = state.mission.label;
+    sub.textContent = state.mission.startedAt ? (replaying ? 'Replaying' : 'Running now') : 'Standing by';
+  }
+  let missionQueue = [];
+  async function refreshMissionQueue() {
+    try {
+      const r = await fetch('/api/missions', { cache: 'no-store' });
+      const j = await r.json();
+      if (!j.ok) return;
+      missionQueue = j.missions.slice(-8).reverse();
+    } catch { return; }
+    const box = $('msQueue');
+    if (!box) return;
+    if (!missionQueue.length) { box.innerHTML = '<span class="mission-strip-empty">No missions recorded yet</span>'; return; }
+    box.innerHTML = missionQueue.map(m => {
+      const tone = m.status === 'running' ? 'running' : (m.status === 'completed' || m.status === 'done') ? 'done' : m.status === 'failed' ? 'error' : '';
+      return `<button class="ms-chip ${tone}" data-mission-id="${esc(m.id)}" title="${esc(m.label)} — ${esc(m.status)}"><span class="ms-chip-dot"></span>${esc(m.label)}</button>`;
+    }).join('');
+    box.querySelectorAll('[data-mission-id]').forEach(b => { b.onclick = () => viewHistory(b.dataset.missionId); });
+  }
+  setInterval(refreshMissionQueue, 20000);
   function setConn(mode, text) {
     state.mode = mode; $('conn').dataset.s = mode;
     $('conn').querySelector('span').textContent = text;
@@ -606,6 +1194,7 @@
     const saved = { nodes: snapshotNodes(), mission: { ...state.mission } };
     seed(start.snapshot); state.mission = { ...start.mission };
     $('feedList').innerHTML = '';
+    showView('map');
     render();
     let last = start.t;
     for (const step of rec.slice(1)) {
@@ -638,6 +1227,9 @@
       state.taskSubmit = !!msg.taskSubmit; $('newTaskBtn').hidden = !state.taskSubmit;
     } else if (msg.type === 'budget') {
       updateBudgetBanner(msg);
+    } else if (msg.type === 'skills') {
+      skillsCatalog = msg.skills || [];
+      if (currentView === 'skills') renderSkills();
     }
   }
 
@@ -664,28 +1256,31 @@
     return [...state.nodes.values()].filter(n => n.kind === 'mission' || n.kind === 'agent').map(n => ({ ...n, status: 'idle', detail: '' }));
   }
   async function openHistory() {
-    $('historyOverlay').hidden = false;
+    showView('history');
     const list = $('historyList');
-    list.innerHTML = '<li style="color:var(--muted)">Loading…</li>';
+    list.innerHTML = '<li class="hist-empty">Loading…</li>';
     try {
       const r = await fetch('/api/missions');
       const j = await r.json();
       if (!j.ok) throw new Error('failed to load');
       const missions = j.missions.slice().reverse();
-      if (!missions.length) { list.innerHTML = '<li style="color:var(--muted)">No missions recorded yet.</li>'; return; }
+      if (!missions.length) { list.innerHTML = '<li class="hist-empty">No missions recorded yet.</li>'; return; }
       list.innerHTML = '';
       for (const m of missions) {
         const li = document.createElement('li');
+        li.className = 'hist-row';
         const d = new Date(m.startedAt);
-        li.textContent = `${d.toLocaleString()} — ${m.label} (${m.status})`;
+        const badge = ({ completed: 'done', done: 'done', failed: 'error', running: 'thinking' }[m.status] || 'idle');
+        li.innerHTML = `<span class="hist-label">${esc(m.label)}</span><span class="hist-time">${esc(d.toLocaleString())}</span><span class="badge badge-${esc(badge)}">${esc(m.status)}</span><span class="hist-replay">Replay ▸</span>`;
         li.onclick = () => { closeHistory(); viewHistory(m.id); };
         list.appendChild(li);
       }
     } catch (err) {
-      list.innerHTML = `<li style="color:var(--error)">Couldn't load history: ${err.message}</li>`;
+      list.innerHTML = `<li class="hist-empty">Couldn't load history: ${esc(err.message)}</li>`;
     }
   }
-  function closeHistory() { $('historyOverlay').hidden = true; }
+  function closeHistory() { showView('map'); }
+  $('historyClose').onclick = closeHistory;
   async function viewHistory(id) {
     if (replaying) return;
     const base = baseSkeleton();
@@ -701,6 +1296,7 @@
     const saved = { nodes: snapshotNodes(), mission: { ...state.mission } };
     seed(base); state.mission = { label: 'Loading history…', startedAt: null };
     $('feedList').innerHTML = '';
+    showView('map');
     render();
     let last = ops[0]._recordedAt || Date.now();
     for (const op of ops) {
@@ -717,12 +1313,10 @@
     render();
     buffered.forEach(m2 => handle(m2));
   }
-  $('historyBtn').onclick = openHistory;
-  $('historyClose').onclick = closeHistory;
 
   // ---------- task submission ----------
   async function openTask() {
-    $('taskOverlay').hidden = false;
+    showView('tasks');
     $('taskErr').textContent = '';
     $('taskPrompt').value = '';
     const list = $('templateList'); list.innerHTML = '';
@@ -737,7 +1331,7 @@
       }
     } catch {}
   }
-  function closeTask() { $('taskOverlay').hidden = true; }
+  function closeTask() { showView('map'); }
   async function sendTask() {
     const prompt = $('taskPrompt').value.trim();
     if (!prompt) return;
@@ -784,7 +1378,7 @@
   // ---------- demo (used when no backend is reachable) ----------
   const demo = (() => {
     let timers = [], waitingFor = null;
-    const agents = ['main', 'sysadmin', 'devops', 'security'];
+    const agents = ['main', 'sysadmin', 'devops', 'security', 'marketing', 'brainstorm', 'planner'];
     const base = () => [
       { id: 'mission', kind: 'mission', label: 'No active mission', status: 'idle' },
       ...agents.map((a, i) => ({ id: `agent:${a}`, kind: 'agent', label: a, status: 'idle', parent: i ? 'agent:main' : 'mission', model: 'deepseek-v4-flash' })),
@@ -857,8 +1451,7 @@
       const r = await fetch('/api/audit');
       const j = await r.json().catch(() => ({}));
       if (!j.ok) return;
-      const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-      $('auditSection').hidden = false;
+      $('auditNav').hidden = false;
       const list = $('auditList'); list.innerHTML = '';
       for (const e of j.entries.slice().reverse()) {
         const li = document.createElement('li');
@@ -873,7 +1466,6 @@
   // ---------- agent registry / management ----------
   function bareId(id) { return String(id).replace(/^agent:/, ''); }
   function renderAgents() {
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const list = $('agentsList');
     const agentNodes = [...state.nodes.values()].filter(n => n.kind === 'agent');
     const byId = new Map(agentNodes.map(n => [n.id, n]));
@@ -890,31 +1482,41 @@
     agentNodes.forEach(n => { if (!rendered.has(n.id)) rows.push({ n, depth: 0 }); });
 
     const now = Date.now();
-    list.innerHTML = rows.map(({ n, depth }) => {
-      const since = n.statusSince ? Math.max(0, now - n.statusSince) : null;
-      const sinceText = since != null ? `${Math.floor(since / 1000)}s in ${STATUS_TEXT[n.status] || n.status}` : '';
-      const hasUsage = n.tokensIn != null || n.tokensOut != null;
-      const tokens = hasUsage ? `in ${n.tokensIn || 0} / out ${n.tokensOut || 0} (last run)` : 'no usage reported by this Gateway';
-      const id = esc(n.id);
-      const controls = state.role === 'admin' ? `
-        <button class="tbtn" data-agent-action="stop" data-agent-id="${id}">Stop</button>
-        <button class="tbtn" data-agent-action="restart" data-agent-id="${id}">Restart</button>
-        <button class="tbtn" data-agent-action="pause" data-agent-id="${id}">Pause</button>
-        <button class="tbtn" data-agent-action="resume" data-agent-id="${id}">Resume</button>
-        <button class="tbtn" data-agent-config="${id}">Edit config</button>` : '';
-      return `<div style="padding:10px 0;border-bottom:1px solid var(--grid);margin-left:${depth * 16}px">
-        <div style="font-weight:600">${esc(n.label || bareId(n.id))} <span style="font-size:11px;font-weight:400;color:var(--muted)">${esc(STATUS_TEXT[n.status] || n.status)}</span></div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(n.model || 'model unknown')}${sinceText ? ' · ' + esc(sinceText) : ''}</div>
-        <div style="font-size:12px;color:var(--muted)">tokens: ${esc(tokens)}</div>
-        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${controls}</div>
-      </div>`;
-    }).join('') || '<p style="color:var(--muted)">No agents yet.</p>';
+    const statusBadge = (st) => `<span class="badge badge-${esc(st || 'idle')}">${esc(STATUS_TEXT[st] || st || 'idle')}</span>`;
+    list.innerHTML = `
+      <table class="table"><thead><tr><th>Agent</th><th>Status</th><th>Model</th><th>Tokens</th><th>Active for</th><th class="td-actions">Actions</th></tr></thead><tbody>
+      ${rows.map(({ n, depth }) => {
+        const since = n.statusSince ? Math.max(0, now - n.statusSince) : null;
+        const sinceText = since != null ? `${Math.floor(since / 1000)}s in ${STATUS_TEXT[n.status] || n.status}` : '';
+        const hasUsage = n.tokensIn != null || n.tokensOut != null;
+        const tokens = hasUsage ? `in ${n.tokensIn || 0} / out ${n.tokensOut || 0} (last run)` : 'no usage reported by this Gateway';
+        const id = esc(n.id);
+        const name = esc(n.label || bareId(n.id));
+        const parentLabel = n.parent && state.nodes.has(n.parent) ? esc(state.nodes.get(n.parent).label || bareId(n.parent)) : '';
+        const controls = state.role === 'admin' ? `
+          <div class="row-actions">
+            <button class="tbtn btn-sm" data-agent-action="stop" data-agent-id="${id}">Stop</button>
+            <button class="tbtn btn-sm" data-agent-action="restart" data-agent-id="${id}">Restart</button>
+            <button class="tbtn btn-sm" data-agent-action="pause" data-agent-id="${id}">Pause</button>
+            <button class="tbtn btn-sm" data-agent-action="resume" data-agent-id="${id}">Resume</button>
+            <button class="tbtn btn-sm" data-agent-config="${id}">Config</button>
+          </div>` : '';
+        return `<tr>
+          <td style="padding-left:${depth * 18}px"><div class="t-name">${EMOJI[name] || '🤖'} ${name}</div>${depth && parentLabel ? `<div class="t-sub">reports to ${parentLabel}</div>` : ''}</td>
+          <td>${statusBadge(n.status)}</td>
+          <td class="t-sub">${esc(n.model || '—')}</td>
+          <td class="t-sub">${esc(tokens)}</td>
+          <td class="t-sub">${esc(sinceText || '—')}</td>
+          <td class="td-actions">${controls}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="6" class="empty-cell">No agents yet.</td></tr>'
+      }</tbody></table>`;
 
     list.querySelectorAll('[data-agent-action]').forEach(b => { b.onclick = () => agentControl(b.dataset.agentId, b.dataset.agentAction); });
-    list.querySelectorAll('[data-agent-config]').forEach(b => { b.onclick = () => agentConfig(b.dataset.agentConfig); });
+    list.querySelectorAll('[data-agent-config]').forEach(b => { b.onclick = () => openAgentConfig(b.dataset.agentConfig); });
   }
-  function openAgents() { $('agentsOverlay').hidden = false; renderAgents(); }
-  function closeAgents() { $('agentsOverlay').hidden = true; }
+  function openAgents() { showView('agents'); renderAgents(); }
+  function closeAgents() { showView('map'); }
   async function agentControl(id, action) {
     const name = bareId(id);
     try {
@@ -926,44 +1528,214 @@
       addFeed({ agent: 'mission control', text: `${action} failed for ${name}: ${err.message}`, tone: 'error' });
     }
   }
-  async function agentConfig(id) {
+
+  // ---------- agent configuration form ----------
+  function fieldRead(name, fallback) {
+    const el = document.getElementById(`aq-${name}`);
+    if (!el) return fallback;
+    const v = el.value;
+    return v === '' ? fallback : v;
+  }
+  function fieldNum(name, fallback) {
+    const el = document.getElementById(`aq-${name}`);
+    if (!el) return fallback;
+    const v = el.value === '' ? NaN : Number(el.value);
+    return Number.isFinite(v) ? v : fallback;
+  }
+  function skillCardHtml(s) {
+    const checked = s.status === 'installed' && s.enabled;
+    const meta = `${esc(s.version)}${s.status !== 'installed' ? ' · not installed' : s.enabled ? '' : ' · disabled'}`;
+    return `<label class="skill-card" data-skill-card data-name="${esc(s.name.toLowerCase())}" data-desc="${esc((s.description || '').toLowerCase())}">
+      <input type="checkbox" value="${esc(s.name)}" data-aq-skill ${checked ? 'checked' : ''}>
+      <div class="skill-card-top"><span class="skill-name" title="${esc(s.name)}">${esc(s.name)}</span><span class="skill-toggle" aria-hidden="true"></span></div>
+      <div class="skill-meta">${meta}</div>
+      ${s.description ? `<div class="skill-desc">${esc(s.description)}</div>` : ''}
+    </label>`;
+  }
+  function skillPickerHtml() {
+    if (!skillsCatalog.length) {
+      return `<p class="form-note">No skills cataloged yet — the Skills panel will populate this the moment a skill is installed or the Gateway reports its catalog.</p>`;
+    }
+    const selected = skillsCatalog.filter(s => s.status === 'installed' && s.enabled).length;
+    return `<div class="skill-picker">
+      <div class="skill-picker-head">
+        <input id="aq-skill-search" placeholder="Filter skills by name or description…" autocomplete="off">
+        <span class="skill-count" id="aq-skill-count">${selected} of ${skillsCatalog.length} selected</span>
+      </div>
+      <div class="skill-grid" id="aq-skill-grid">${skillsCatalog.map(skillCardHtml).join('')}</div>
+    </div>`;
+  }
+  async function agentCfgTemplate(id) {
     const name = bareId(id);
-    const raw = prompt(`Config changes for ${name} (JSON object):`, '{}');
-    if (raw == null) return;
+    const node = state.nodes.get(id) || {};
+    if (!skillsCatalog.length) await loadSkills();
+    return `
+      <form id="aq-form" class="form-grid" onsubmit="return false">
+        <div class="form-field">
+          <label>Agent id</label>
+          <input value="${esc(name)}" disabled>
+        </div>
+        <div class="form-field">
+          <label for="aq-label">Display label</label>
+          <input id="aq-label" value="${esc(node.label || name)}" autocomplete="off">
+        </div>
+        <div class="form-field">
+          <label for="aq-model">Model</label>
+          <input id="aq-model" value="${esc(node.model || '')}" placeholder="e.g. deepseek-v4-flash" autocomplete="off">
+          <span class="hint">Currently reported: ${esc(node.model || '—')}</span>
+        </div>
+        <div class="form-field">
+          <label for="aq-temperature">Temperature</label>
+          <input id="aq-temperature" type="number" min="0" max="2" step="0.05" value="0.7">
+        </div>
+        <div class="form-field">
+          <label for="aq-maxTokens">Max tokens per run</label>
+          <input id="aq-maxTokens" type="number" min="1" step="100" placeholder="unlimited">
+        </div>
+        <div class="form-field">
+          <label for="aq-retries">Max retries</label>
+          <input id="aq-retries" type="number" min="0" step="1" value="2">
+        </div>
+        <div class="form-field">
+          <label for="aq-timeout">Run timeout (seconds)</label>
+          <input id="aq-timeout" type="number" min="1" step="1" value="300">
+        </div>
+        <div class="form-field">
+          <label for="aq-budget">Token cap per run</label>
+          <input id="aq-budget" type="number" min="0" step="100" placeholder="unlimited">
+          <span class="hint">Lifetime usage so far: in ${node.tokensIn || 0} / out ${node.tokensOut || 0}</span>
+        </div>
+        <div class="form-field span-all">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink)">
+            <span class="badge badge-${esc(node.status || 'idle')}">${esc(node.status || 'idle')}</span>
+            Start / stop / pause is controlled from the Agents table; this form saves identity, limits, budgets, and skill assignment.
+          </label>
+        </div>
+        <div class="form-field span-all">
+          <div class="fieldstitle">Identity</div>
+          <p class="form-note">Two separate documents, the way OpenClaw agents keep them apart: what the agent does, and who it is.</p>
+        </div>
+        <div class="form-field span-all">
+          <div class="md-field">
+            <div class="md-field-head"><span class="md-dot" style="background:var(--thinking)"></span>agent.md<span class="hint">Role, responsibilities, operating instructions</span></div>
+            <textarea id="aq-agentmd" rows="6" placeholder="# ${esc(name)}&#10;&#10;You are ${esc(name)}. You report back to the orchestrator and ..."></textarea>
+          </div>
+        </div>
+        <div class="form-field span-all">
+          <div class="md-field">
+            <div class="md-field-head"><span class="md-dot" style="background:var(--executing)"></span>soul.md<span class="hint">Personality, voice, tone</span></div>
+            <textarea id="aq-soulmd" rows="4" placeholder="How ${esc(name)} sounds when it talks back — tone, quirks, what it cares about."></textarea>
+          </div>
+        </div>
+        <div class="form-field span-all">
+          <div class="fieldstitle">Skills</div>
+          ${skillPickerHtml()}
+        </div>
+        <div class="form-field span-all">
+          <div class="fieldstitle">Advanced</div>
+          <p class="form-note">Anything not covered above — pass it as raw JSON; it is merged over the form fields on submit.</p>
+          <textarea id="aq-raw" rows="3" placeholder="{ }"></textarea>
+        </div>
+        <div class="form-field span-all">
+          <div class="form-err" id="aq-err"></div>
+          <div class="row-actions">
+            <button class="tbtn" id="aq-save">Save configuration</button>
+            <button class="tbtn btn-sm" id="aq-back" type="button">Back to agents</button>
+          </div>
+        </div>
+      </form>`;
+  }
+  function wireSkillPicker() {
+    const grid = $('aq-skill-grid'), search = $('aq-skill-search'), count = $('aq-skill-count');
+    if (!grid) return;
+    const cards = [...grid.querySelectorAll('[data-skill-card]')];
+    const updateCount = () => { if (count) count.textContent = `${grid.querySelectorAll('[data-aq-skill]:checked').length} of ${cards.length} selected`; };
+    grid.addEventListener('change', updateCount);
+    if (search) search.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      for (const card of cards) card.classList.toggle('skill-hide', q && !card.dataset.name.includes(q) && !card.dataset.desc.includes(q));
+    });
+  }
+  async function openAgentConfig(id) {
+    showView('agentConfig');
+    $('agentCfgForm').innerHTML = `<p class="empty-cell center">Loading…</p>`;
+    $('agentCfgForm').innerHTML = await agentCfgTemplate(id);
+    $('agentCfgClose').onclick = closeAgentConfig;
+    $('aq-back').onclick = closeAgentConfig;
+    $('aq-save').onclick = () => submitAgentConfig(id);
+    wireSkillPicker();
+  }
+  function closeAgentConfig() { showView('agents'); }
+  function collectAgentConfig() {
+    const raw = fieldRead('raw', '');
+    let extra = {};
+    if (raw.trim()) { try { extra = JSON.parse(raw); } catch { throw new Error('Advanced JSON is not valid'); } }
+    if (extra && typeof extra !== 'object') throw new Error('Advanced JSON must be an object');
+    const config = {
+      label: fieldRead('label', undefined),
+      model: fieldRead('model', undefined),
+      agentMd: fieldRead('agentmd', undefined),
+      soulMd: fieldRead('soulmd', undefined),
+      temperature: fieldNum('temperature', undefined),
+      maxTokens: fieldNum('maxTokens', undefined),
+      maxRetries: fieldNum('retries', undefined),
+      timeoutSeconds: fieldNum('timeout', undefined),
+      budgetTokensPerRun: fieldNum('budget', undefined),
+      skills: [...document.querySelectorAll('[data-aq-skill]:checked')].map(c => c.value),
+    };
+    Object.keys(config).forEach(k => { if (config[k] === undefined) delete config[k]; });
+    return { ...extra, ...config };
+  }
+  async function submitAgentConfig(id) {
+    const name = bareId(id);
     let config;
-    try { config = JSON.parse(raw); } catch { addFeed({ agent: 'mission control', text: 'Config must be valid JSON', tone: 'error' }); return; }
+    try { config = collectAgentConfig(); }
+    catch (err) { $('aq-err').textContent = err.message; return; }
     try {
       const r = await fetch(`/api/agent/${encodeURIComponent(name)}/config`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ config }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
       addFeed({ agent: 'mission control', text: `Config update sent for ${name}`, tone: 'result' });
+      closeAgentConfig();
     } catch (err) {
+      $('aq-err').textContent = err.message;
       addFeed({ agent: 'mission control', text: `Config update failed for ${name}: ${err.message}`, tone: 'error' });
     }
   }
+
+  // ---------- spawn helper agent (inline form, no browser prompts) ----------
+  function toggleSpawn() {
+    const form = $('spawnForm');
+    form.hidden = !form.hidden;
+    if (!form.hidden) { $('spawnId').focus(); }
+  }
+  function spawnFormGrew() { $('spawnSend').disabled = !($('spawnId').value.trim() && $('spawnTask').value.trim()); }
   async function spawnAgent() {
-    const agentId = prompt('Spawn which agent (id)?', '');
-    if (!agentId) return;
-    const task = prompt('Task for the new sub-agent:', '');
-    if (!task) return;
+    const agentId = $('spawnId').value.trim();
+    const prompt = $('spawnTask').value.trim();
+    if (!agentId || !prompt) return;
     try {
-      const r = await fetch('/api/agent/spawn', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agentId, prompt: task }) });
+      const r = await fetch('/api/agent/spawn', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agentId, prompt }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
       addFeed({ agent: 'mission control', text: `Spawn requested: ${agentId}`, tone: 'result' });
+      $('spawnId').value = ''; $('spawnTask').value = ''; spawnFormGrew();
+      toggleSpawn();
     } catch (err) {
       addFeed({ agent: 'mission control', text: `Spawn failed: ${err.message}`, tone: 'error' });
     }
   }
-  $('agentsBtn').onclick = openAgents;
+  $('agentsSpawn').onclick = toggleSpawn;
+  $('spawnCancel').onclick = toggleSpawn;
+  $('spawnId').addEventListener('input', spawnFormGrew);
+  $('spawnTask').addEventListener('input', spawnFormGrew);
+  $('spawnSend').onclick = spawnAgent;
   $('agentsClose').onclick = closeAgents;
-  $('agentsSpawn').onclick = spawnAgent;
 
   // ---------- tool catalog / usage / policy ----------
   async function renderTools() {
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const list = $('toolsList');
-    list.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
+    list.innerHTML = '<p class="empty-cell" style="text-align:center">Loading…</p>';
     let tools = [], policy = {};
     try {
       const [tr, pr] = await Promise.all([fetch('/api/tools'), fetch('/api/tool-policy')]);
@@ -972,32 +1744,40 @@
       if (tj.ok) tools = tj.tools;
       if (pj.ok) policy = pj.policy;
     } catch {
-      list.innerHTML = '<p style="color:var(--error)">Could not load tool stats.</p>';
+      list.innerHTML = '<p class="empty-cell" style="color:var(--error)">Could not load tool stats.</p>';
       return;
     }
-    if (!tools.length) { list.innerHTML = '<p style="color:var(--muted)">No completed tool calls recorded yet.</p>'; return; }
+    if (!tools.length) { list.innerHTML = '<p class="empty-cell" style="color:var(--muted)">No completed tool calls recorded yet.</p>'; return; }
 
-    list.innerHTML = tools.map(t => {
-      const agentRows = (t.agents.length ? t.agents : ['(unknown)']).map(agentId => {
-        const current = policy[`${agentId}:${t.name}`] || 'ask';
-        const editor = state.role === 'admin'
-          ? `<select data-policy-agent="${esc(agentId)}" data-policy-tool="${esc(t.name)}" style="margin-left:8px">${['allow', 'ask', 'deny'].map(p => `<option value="${esc(p)}" ${p === current ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>`
-          : `<span style="margin-left:8px;color:var(--muted)">${esc(current)}</span>`;
-        return `<div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(agentId)}:${editor}</div>`;
-      }).join('');
-      const avg = t.avgDurationMs != null ? `${t.avgDurationMs}ms avg` : 'duration unknown';
-      return `<div style="padding:10px 0;border-bottom:1px solid var(--grid)">
-        <div style="font-weight:600">${esc(t.name)} <span style="font-size:11px;font-weight:400;color:var(--muted)">${t.calls} calls · ${t.success} ok · ${t.failure} failed · ${avg}</span></div>
-        ${agentRows}
-      </div>`;
-    }).join('');
+    const policyBadge = (p) => `<span class="badge badge-${p}">${esc(p)}</span>`;
+    list.innerHTML = `
+      <table class="table"><thead><tr><th>Tool</th><th class="num">Calls</th><th class="num">OK</th><th class="num">Failed</th><th class="num">Avg duration</th><th>Policy per agent</th></tr></thead><tbody>
+      ${tools.map(t => {
+        const avg = t.avgDurationMs != null ? `${t.avgDurationMs}ms` : '—';
+        const agentRows = (t.agents.length ? t.agents : ['(unknown)']).map(agentId => {
+          const current = policy[`${agentId}:${t.name}`] || 'ask';
+          const editor = state.role === 'admin'
+            ? `<select class="policy" data-policy-agent="${esc(agentId)}" data-policy-tool="${esc(t.name)}">${['allow', 'ask', 'deny'].map(p => `<option value="${esc(p)}" ${p === current ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>`
+            : (policyBadge(current));
+          return `<div class="t-sub" style="margin-top:2px">${esc(agentId)}${editor}</div>`;
+        }).join('');
+        return `<tr>
+          <td class="t-name">${esc(t.name)}</td>
+          <td class="num">${t.calls}</td>
+          <td class="cell-ok">${t.success}</td>
+          <td class="cell-fail">${t.failure}</td>
+          <td class="num t-sub">${esc(avg)}</td>
+          <td>${agentRows}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="6" class="empty-cell">No completed tool calls recorded yet.</td></tr>'
+      }</tbody></table>`;
 
     list.querySelectorAll('[data-policy-agent]').forEach(sel => {
       sel.onchange = () => setToolPolicy(sel.dataset.policyAgent, sel.dataset.policyTool, sel.value);
     });
   }
-  function openTools() { $('toolsOverlay').hidden = false; renderTools(); }
-  function closeTools() { $('toolsOverlay').hidden = true; }
+  function openTools() { showView('tools'); renderTools(); }
+  function closeTools() { showView('map'); }
   async function setToolPolicy(agentId, tool, policy) {
     try {
       const r = await fetch('/api/tool-policy', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agentId, tool, policy }) });
@@ -1008,45 +1788,149 @@
       addFeed({ agent: 'mission control', text: `Could not set ${tool} policy for ${agentId}: ${err.message}`, tone: 'error' });
     }
   }
-  $('toolsBtn').onclick = openTools;
-  $('toolsClose').onclick = closeTools;
   $('toolsRefresh').onclick = renderTools;
+  $('toolsClose').onclick = closeTools;
+
+  // ---------- skills catalog ----------
+  async function loadSkills() {
+    try {
+      const r = await fetch('/api/skills', { cache: 'no-store' });
+      const j = await r.json().catch(() => ({}));
+      if (j.ok) skillsCatalog = j.skills;
+    } catch { /* backend unreachable -- keep whatever we have */ }
+  }
+  function skillBadge(s) {
+    if (s.status !== 'installed') return `<span class="badge badge-idle">not installed</span>`;
+    return s.enabled
+      ? `<span class="badge badge-done">enabled</span>`
+      : `<span class="badge badge-waiting">disabled</span>`;
+  }
+  function skillActions(s) {
+    if (state.role !== 'admin') return '';
+    const buttons = [];
+    if (s.status !== 'installed') {
+      buttons.push(`<button class="tbtn btn-sm" data-skill-action="install-local" data-skill="${esc(s.name)}">Install</button>`);
+    } else {
+      buttons.push(
+        s.enabled
+          ? `<button class="tbtn btn-sm" data-skill-action="disable" data-skill="${esc(s.name)}">Disable</button>`
+          : `<button class="tbtn btn-sm" data-skill-action="enable" data-skill="${esc(s.name)}">Enable</button>`,
+        `<button class="tbtn btn-sm" data-skill-action="update" data-skill="${esc(s.name)}">Update</button>`,
+        `<button class="tbtn btn-sm" data-skill-action="remove" data-skill="${esc(s.name)}">Remove</button>`,
+      );
+    }
+    return `<div class="row-actions">${buttons.join('')}</div>`;
+  }
+  function installLocal(name) {
+    openSkillInstall();
+    $('skillName').value = name;
+    $('skillSource').focus();
+  }
+  async function renderSkills() {
+    const list = $('skillsList');
+    const btn = $('skillInstallBtn');
+    btn.hidden = state.role !== 'admin';
+    list.innerHTML = '<p class="empty-cell center">Loading…</p>';
+    await loadSkills();
+    if (!skillsCatalog.length) {
+      list.innerHTML = '<p class="empty-cell center">No skills cataloged yet. Install a skill, or connect a Gateway that reports its skill catalog, and this list will fill in.</p>';
+      return;
+    }
+    list.innerHTML = `
+      <table class="table"><thead><tr><th>Skill</th><th>Version</th><th>Status</th><th>Source</th><th>Description</th><th class="td-actions">Actions</th></tr></thead><tbody>
+      ${skillsCatalog.map(s => `<tr>
+        <td class="t-name">${esc(s.name)}</td>
+        <td class="t-sub">${esc(s.version)}</td>
+        <td>${skillBadge(s)}</td>
+        <td class="t-sub">${esc(s.source || '—')}</td>
+        <td class="t-sub">${esc(s.description || '')}</td>
+        <td class="td-actions">${skillActions(s)}</td>
+      </tr>`).join('')}
+      </tbody></table>`;
+    list.querySelectorAll('[data-skill-action]').forEach(b => {
+      b.onclick = () => {
+        const action = b.dataset.skillAction;
+        if (action === 'install-local') installLocal(b.dataset.skill);
+        else skillAction(b.dataset.skill, action);
+      };
+    });
+  }
+  function openSkills() { showView('skills'); renderSkills(); }
+  function closeSkills() { showView('map'); }
+  async function skillAction(name, action) {
+    try {
+      const r = await fetch(`/api/skills/${encodeURIComponent(name)}/control`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+      addFeed({ agent: 'mission control', text: `Skill ${name} ${action}${j.rpcError ? ' (saved locally; Gateway rejected the change)' : ''}`, tone: j.rpcError ? 'error' : 'result' });
+      renderSkills();
+    } catch (err) {
+      addFeed({ agent: 'mission control', text: `Could not ${action} ${name}: ${err.message}`, tone: 'error' });
+    }
+  }
+  function openSkillInstall() {
+    const form = $('skillInstallForm');
+    form.hidden = !form.hidden;
+    if (!form.hidden) $('skillName').focus();
+  }
+  function skillFormGrew() { $('skillInstallSend').disabled = !$('skillName').value.trim(); }
+  async function installSkill() {
+    const name = $('skillName').value.trim();
+    const source = $('skillSource').value.trim();
+    if (!name) return;
+    try {
+      const r = await fetch('/api/skills/install', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, source }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+      addFeed({ agent: 'mission control', text: `Skill ${name} installed${j.rpcError ? ' locally (Gateway rejected the RPC)' : ''}`, tone: j.rpcError ? 'error' : 'result' });
+      $('skillName').value = ''; $('skillSource').value = ''; skillFormGrew();
+      openSkillInstall();
+      renderSkills();
+    } catch (err) {
+      addFeed({ agent: 'mission control', text: `Could not install ${name}: ${err.message}`, tone: 'error' });
+    }
+  }
+  $('skillInstallBtn').onclick = openSkillInstall;
+  $('skillInstallCancel').onclick = () => { $('skillInstallForm').hidden = true; };
+  $('skillName').addEventListener('input', skillFormGrew);
+  $('skillInstallSend').onclick = installSkill;
+  $('skillsRefresh').onclick = renderSkills;
+  $('skillsClose').onclick = closeSkills;
 
   // ---------- Mission Control health panel (distinct from the small badge above: this one
   // shows /api/metrics -- event throughput, unknown-event warnings, reconnect count) ----------
   async function renderHealth() {
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const body = $('healthBody');
-    body.innerHTML = 'Loading…';
+    body.innerHTML = '<p class="empty-cell" style="text-align:center">Loading…</p>';
     try {
       const r = await fetch('/api/metrics');
       const j = await r.json().catch(() => ({}));
       if (!j.ok) throw new Error('failed to load');
-      const rows = [
-        ['Gateway', j.gatewayStatus],
-        ['Uptime', `${j.uptimeSec}s`],
-        ['SSE clients', j.sseClients],
-        ['Reconnects', j.reconnectCount],
-      ];
       const events = Object.entries(j.eventCounts || {}).sort((a, b) => b[1] - a[1]);
       const unknown = Object.entries(j.unknownEventCounts || {});
+      const gwClass = { live: 'done', connecting: 'thinking', reconnecting: 'error', error: 'error' }[j.gatewayStatus] || 'idle';
+      const kpi = (label, value) => `<div class="kpi"><span class="kpi-label">${esc(label)}</span><span class="kpi-value">${value}</span></div>`;
       body.innerHTML = `
-        <dl style="display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:0">
-          ${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd style="margin:0">${esc(v)}</dd>`).join('')}
-        </dl>
-        <div style="margin-top:10px;font-weight:600;color:var(--ink)">Event throughput</div>
-        ${events.length ? events.map(([name, count]) => `<div>${esc(name)}: ${count}</div>`).join('') : '<div>No events yet.</div>'}
-        ${unknown.length ? `<div style="margin-top:10px;font-weight:600;color:var(--error)">Unrecognized events (Gateway protocol drift)</div>${unknown.map(([name, count]) => `<div>${esc(name)}: ${count}</div>`).join('')}` : ''}
+        <div class="kpis">
+          ${kpi('Gateway', `<span class="badge badge-${gwClass}">${esc(j.gatewayStatus)}</span>`)}
+          ${kpi('Uptime', esc(`${j.uptimeSec}s`))}
+          ${kpi('SSE clients', esc(j.sseClients))}
+          ${kpi('Reconnects', esc(j.reconnectCount))}
+        </div>
+        <div class="panel-subhead">Event throughput</div>
+        <table class="table"><thead><tr><th>Event</th><th class="num">Count</th></tr></thead><tbody>
+          ${events.length ? events.map(([name, count]) => `<tr><td class="t-name">${esc(name)}</td><td class="num">${count}</td></tr>`).join('') : '<tr><td colspan="2" class="empty-cell">No events yet.</td></tr>'}
+        </tbody></table>
+        ${unknown.length ? `<div class="drift">Unrecognized events (Gateway protocol drift)${unknown.map(([name, count]) => `<div style="margin-top:4px">${esc(name)}: ${count}</div>`).join('')}</div>` : ''}
       `;
     } catch (err) {
-      body.innerHTML = `<span style="color:var(--error)">Could not load metrics: ${err.message}</span>`;
+      body.innerHTML = `<span style="color:var(--error)">Could not load metrics: ${esc(err.message)}</span>`;
     }
   }
-  function openHealth() { $('healthOverlay').hidden = false; renderHealth(); }
-  function closeHealth() { $('healthOverlay').hidden = true; }
-  $('healthBtn').onclick = openHealth;
-  $('healthClose').onclick = closeHealth;
+  function openHealth() { showView('health'); renderHealth(); }
+  function closeHealth() { showView('map'); }
   $('healthRefresh').onclick = renderHealth;
+  $('healthClose').onclick = closeHealth;
 
   // ---------- Mission Control's own health, independent of the Gateway/SSE status ----------
   let healthFailures = 0;
@@ -1132,6 +2016,23 @@
     }
   };
 
+  // ---------- sidebar navigation bindings ----------
+  for (const item of document.querySelectorAll('[data-view]')) {
+    item.addEventListener('click', () => {
+      const v = item.dataset.view;
+      if (v === 'map') showView('map');
+      else if (v === 'history') openHistory();
+      else if (v === 'tasks') openTask();
+      else if (v === 'agents') openAgents();
+      else if (v === 'tools') openTools();
+      else if (v === 'skills') openSkills();
+      else if (v === 'health') openHealth();
+      else if (v === 'audit') showView('audit');
+    });
+  }
+  $('auditClose').onclick = closeAudit;
+  function closeAudit() { showView('map'); }
+
   // ---------- keyboard shortcuts (ignored while typing in a field) ----------
   addEventListener('keydown', (e) => {
     const tag = (e.target && e.target.tagName || '').toLowerCase();
@@ -1146,6 +2047,7 @@
   });
 
   loadSession();
+  refreshMissionQueue();
 
   requestAnimationFrame(frame);
   const isServed = location.protocol.startsWith('http') && !/claude|anthropic/.test(location.hostname) && !new URLSearchParams(location.search).has('demo');

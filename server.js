@@ -15,6 +15,8 @@ import { createCircuitBreaker } from './circuitbreaker.js';
 import { createLogger } from './log.js';
 import { estimateCost, budgetStatus } from './budget.js';
 import { parseWebhooks, fireWebhook } from './webhook.js';
+import { loadOrCreateDeviceIdentity, buildDeviceProof } from './deviceid.js';
+import { createSkillsStore } from './skills.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,7 +48,7 @@ const cfg = {
   port: Number(process.env.MC_PORT || 4400),
   agents: (process.env.MC_AGENTS || 'main,sysadmin,devops,security').split(',').map(s => s.trim()).filter(Boolean),
   clientId: process.env.MC_CLIENT_ID || 'cli',
-  clientMode: process.env.MC_CLIENT_MODE || 'operator',
+  clientMode: process.env.MC_CLIENT_MODE || 'cli',
   approvals: process.env.MC_ENABLE_APPROVALS === '1',
   approvalMethod: process.env.MC_APPROVAL_METHOD || 'exec.approval.resolve',
   rawLog: path.resolve(here, process.env.MC_RAW_LOG || 'logs/events.jsonl'),
@@ -68,6 +70,11 @@ const cfg = {
   // OpenClaw's own config. The local tool-policy record (see toolpolicy.js) is kept either way,
   // so the UI stays consistent even when this call fails.
   toolToggleMethod: process.env.MC_TOOL_TOGGLE_METHOD || 'agent.tool.toggle',
+  // Unverified placeholders too (see README's caveat on the agent RPCs): installed/updated/
+  // removed skills are mirrored locally in data/skills.json regardless of whether these calls
+  // succeed, so the Skills panel and the agent-config form stay consistent either way.
+  skillsInstallMethod: process.env.MC_SKILLS_INSTALL_METHOD || 'skills.install',
+  skillsControlMethod: process.env.MC_SKILLS_CONTROL_METHOD || 'skills.control',
   // If the Gateway connection fails this many times within the window, stop the normal
   // exponential backoff (which would otherwise retry forever, ever slower) and fall back to a
   // steady, infrequent retry instead -- avoids both a runaway reconnect loop and a "manual
@@ -92,11 +99,25 @@ const auth = createAuth({ users: cfg.authUsers });
 const audit = createAudit({ dir: cfg.dataDir });
 const breaker = createCircuitBreaker({ maxFailures: cfg.reconnectMaxFailures, windowMs: cfg.reconnectWindowMs });
 const log = createLogger();
+// The Gateway validates client.mode against a fixed enum; a stale .env (e.g. the old
+// "operator", which is a role, not a mode) would otherwise reject every connect.
+const VALID_CLIENT_MODES = ['webchat', 'cli', 'ui', 'backend', 'node', 'worker', 'probe', 'test'];
+if (!VALID_CLIENT_MODES.includes(cfg.clientMode)) {
+  log.warn('MC_CLIENT_MODE is not a Gateway client mode; using "cli"', { value: cfg.clientMode, valid: VALID_CLIENT_MODES });
+  cfg.clientMode = 'cli';
+}
+// Stable Ed25519 device identity. Modern Gateways require the connect.challenge nonce to be
+// signed (device-less operator connects get rejected, or have their scopes cleared), so this is
+// generated on first run under MC_DATA_DIR and reused across restarts.
+let deviceIdentity = null;
+try { deviceIdentity = loadOrCreateDeviceIdentity(cfg.dataDir); }
+catch (e) { log.warn('device identity unavailable', { error: e.message }); }
 const unknownEventCounts = new Map();
 const warnedUnknownEvents = new Set();
 let reconnectCount = 0;
 const budgetState = new Map(); // scope key -> last broadcast status, so we only alert on transitions
 const toolPolicy = createToolPolicy({ dir: cfg.dataDir });
+const skillsStore = createSkillsStore({ dir: cfg.dataDir });
 const authEnabled = cfg.authUsers.length > 0;
 const SESSION_COOKIE = 'mc_session';
 const clients = new Set();
@@ -169,12 +190,20 @@ function ingest(event, payload) {
       log.warn('unrecognized Gateway event -- normalizer.js has no case for it', { event });
     }
   }
+  // The skills catalog lives beside the graph, not inside it: mirror the frame into
+  // data/skills.json and rebroadcast only on actual change.
+  if (event === 'skills.changed' || event === 'skills.snapshot') {
+    const { skills, changed } = skillsStore.merge(payload);
+    if (changed) broadcast({ type: 'skills', skills });
+  }
   const ops = normalize(event, payload);
   const subs = ops.filter(o => o.op === 'subscribe');
   for (const s of subs) {
     if (subscribed.has(s.key) || subscribed.size >= 60) continue;
     subscribed.add(s.key);
-    request('sessions.messages.subscribe', { key: s.key, includeApprovals: cfg.approvals })
+    // `includeApprovals` is a literal-true opt-in in the Gateway schema: sending `false` is
+    // rejected with "must be equal to constant". Omit it entirely when approvals are off.
+    request('sessions.messages.subscribe', { key: s.key, ...(cfg.approvals ? { includeApprovals: true } : {}) })
       .catch(e => { subscribed.delete(s.key); log.warn('subscribe failed', { key: s.key, error: e.message }); });
   }
   const out = graph.apply(ops.filter(o => o.op !== 'subscribe'));
@@ -236,6 +265,17 @@ function sendConnect(challenge) {
   const scopes = ['operator.read'];
   if (cfg.approvals) scopes.push('operator.approvals');
   const id = `mc-${++reqSeq}`;
+  // Recent Gateways require a signed device identity whose payload binds the challenge nonce,
+  // client/role/scopes, and shared token. A root-level `nonce` is not a valid connect param.
+  const device = buildDeviceProof(deviceIdentity, {
+    clientId: cfg.clientId,
+    clientMode: cfg.clientMode,
+    role: 'operator',
+    scopes,
+    token: cfg.token || null,
+    challenge,
+    platform: process.platform,
+  });
   pending.set(id, {
     method: 'connect',
     t: setTimeout(() => ws.close(4000, 'connect timeout'), 15000),
@@ -260,7 +300,7 @@ function sendConnect(challenge) {
       role: 'operator', scopes, caps: ['tool-events'], commands: [], permissions: {},
       auth: cfg.token ? { token: cfg.token } : {},
       userAgent: 'openclaw-mission-control/0.1.0',
-      ...(challenge ? { nonce: challenge.nonce } : {}),
+      ...(device ? { device } : {}),
     },
   }));
 }
@@ -324,6 +364,13 @@ const server = http.createServer(async (req, res) => {
     if (!authEnabled) { res.writeHead(302, { location: '/' }); return res.end(); }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
     return res.end(loginHtml());
+  }
+
+  // Vendored frontend libs -- an explicit allowlist, not a generic static server, so this
+  // route can't be tricked into reading arbitrary files via a crafted path.
+  if (url.pathname === '/vendor/gsap.min.js') {
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=31536000, immutable' });
+    return res.end(fs.readFileSync(path.join(here, 'public', 'vendor', 'gsap.min.js')));
   }
 
   if (url.pathname === '/api/login' && req.method === 'POST') {
@@ -491,6 +538,60 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ ok: true, policy: toolPolicy.list(), rpcResult, rpcError }));
     } catch (e) {
       audit.record({ user: session.username, action: 'tool-policy', target: agentId && tool ? `${agentId}:${tool}` : agentId, decision: policy, result: 'error', error: e.message || String(e) });
+      res.writeHead(400, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, error: e.message || String(e) }));
+    }
+  }
+
+  if (url.pathname === '/api/skills' && req.method === 'GET') {
+    if (authEnabled && !sessionFor(req)) { res.writeHead(401); return res.end(); }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true, skills: skillsStore.list() }));
+  }
+
+  if (url.pathname === '/api/skills/install' && req.method === 'POST') {
+    const session = sessionFor(req);
+    if (!session || !roleAtLeast(session.role, 'admin')) { res.writeHead(403); return res.end('Requires an admin session.'); }
+    let name, source;
+    try {
+      ({ name, source } = await readJsonBody(req));
+      if (!name || typeof name !== 'string') throw new Error('name is required');
+      // Mirror the local record either way (same convention as the tool-policy editor); the
+      // RPC error surfaces in the response and the audit trail.
+      let rpcError = null;
+      try { await request(cfg.skillsInstallMethod, { name: String(name).trim(), source: (source || '').trim() || undefined }); }
+      catch (e) { rpcError = e.message || String(e); }
+      skillsStore.applyAction(String(name).trim(), 'install', { source: (source || '').trim() });
+      broadcast({ type: 'skills', skills: skillsStore.list() });
+      audit.record({ user: session.username, action: 'skill-install', target: String(name).trim(), result: rpcError ? 'local-only' : 'ok', error: rpcError || undefined });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ ok: true, skills: skillsStore.list(), rpcError }));
+    } catch (e) {
+      audit.record({ user: session.username, action: 'skill-install', target: name, result: 'error', error: e.message || String(e) });
+      res.writeHead(400, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, error: e.message || String(e) }));
+    }
+  }
+
+  const skillControlMatch = url.pathname.match(/^\/api\/skills\/([^/]+)\/control$/);
+  if (skillControlMatch && req.method === 'POST') {
+    const session = sessionFor(req);
+    if (!session || !roleAtLeast(session.role, 'admin')) { res.writeHead(403); return res.end('Requires an admin session.'); }
+    const skillName = skillControlMatch[1];
+    let action;
+    try {
+      ({ action } = await readJsonBody(req));
+      if (!['enable', 'disable', 'update', 'remove'].includes(action)) throw new Error('action must be enable/disable/update/remove');
+      let rpcError = null;
+      try { await request(cfg.skillsControlMethod, { name: skillName, action }); }
+      catch (e) { rpcError = e.message || String(e); }
+      skillsStore.applyAction(skillName, action);
+      broadcast({ type: 'skills', skills: skillsStore.list() });
+      audit.record({ user: session.username, action: 'skill-control', target: skillName, decision: action, result: rpcError ? 'local-only' : 'ok', error: rpcError || undefined });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ ok: true, skills: skillsStore.list(), rpcError }));
+    } catch (e) {
+      audit.record({ user: session.username, action: 'skill-control', target: skillName, decision: action, result: 'error', error: e.message || String(e) });
       res.writeHead(400, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ ok: false, error: e.message || String(e) }));
     }

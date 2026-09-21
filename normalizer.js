@@ -14,6 +14,9 @@ export const KNOWN_EVENTS = new Set([
   'sessions.snapshot', 'sessions.changed', 'agent', 'session.tool', 'session.message', 'chat',
   'session.approval', 'exec.approval.requested', 'exec.approval.resolved',
   'plugin.approval.requested', 'plugin.approval.resolved',
+  // Stable Gateway events this map deliberately does not visualize. They are listed so the
+  // Health panel reserves "protocol drift" for genuinely new/renamed events after an upgrade.
+  'tick', 'health', 'chat.metadata.changed', 'skills.changed', 'skills.snapshot',
 ]);
 
 export function pick(obj, ...paths) {
@@ -261,6 +264,15 @@ export function createNormalizer({ agents }) {
       case 'plugin.approval.requested':
       case 'plugin.approval.resolved':
         return onApproval(event, p);
+      // Acknowledged, no map op: the Gateway heartbeat (`policy.tickIntervalMs`), its periodic
+      // health snapshot, and session-metadata / skill-catalog churn. Previously these fell
+      // through to `default` and were reported as unrecognized protocol drift on every frame.
+      case 'tick':
+      case 'health':
+      case 'chat.metadata.changed':
+      case 'skills.changed':
+      case 'skills.snapshot':
+        return [];
       default: return [];
     }
   };

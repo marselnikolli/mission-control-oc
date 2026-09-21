@@ -88,9 +88,14 @@ instead of live data.
 ## First-run checklist
 
 1. **Handshake.** `npm start` should log `[gateway] live – scopes: operator.read`.
-   If the Gateway rejects the connect, check the token, then `MC_CLIENT_ID` / `MC_CLIENT_MODE`.
-   Newer Gateways may require a paired device identity (signed challenge) for operator scopes. If the connection
-   succeeds but no session events arrive, that's the likely cause: see docs.openclaw.ai/gateway/protocol/auth.
+   Mission Control generates a stable Ed25519 device identity under `data/` on first run and signs
+   the Gateway's `connect.challenge` with it (required by current Gateways; the nonce is signed
+   into `connect.params.device`, not sent as a top-level param). If the Gateway still rejects the
+   connect, check the token, then `MC_CLIENT_ID` / `MC_CLIENT_MODE` (`mode` must be one of
+   `webchat`, `cli`, `ui`, `backend`, `node`, `worker`, `probe`, `test`). On a Gateway that
+   enforces pairing, approve the new device on the Gateway side the first time; after that the
+   same `data/device-identity.json` reconnects without re-pairing. If the connection succeeds but
+   no session events arrive, see docs.openclaw.ai/gateway/protocol/auth.
 2. **Event shapes.** Trigger a small task ("check disk usage on the VPS"), then read `logs/events.jsonl`.
    The normalizer reads fields defensively, but payload field names vary between OpenClaw versions.
    If something doesn't appear on the map, find the frame in the log and add its field path to the
@@ -129,7 +134,14 @@ the route.
 - **Task submission** (`MC_ENABLE_TASK_SUBMIT`): a **New Task** panel with saved templates
   (`templates.json`).
 - **Agent management** (admin): a panel showing every agent's model, status, delegation
-  chain, and token usage, with Stop/Restart/Pause/Resume, a config editor, and ad-hoc spawn.
+  chain, and token usage, with Stop/Restart/Pause/Resume, ad-hoc spawn, and a **proper config
+  form** (model, temperature, max tokens/retries/timeout, system prompt, per-run token cap,
+  skill assignment, plus a raw-JSON escape hatch for anything not covered).
+- **Skills catalog** (admin): a panel listing each skill's version, status, and source with
+  Install / Enable / Disable / Update / Remove, plus the same set in the agent-config form.
+  The catalog is mirrored in `data/skills.json` — seeded with defaults, merged from the
+  Gateway's `skills.changed` frames, and kept locally even if the Gateway doesn't implement
+  the placeholder RPCs (`MC_SKILLS_INSTALL_METHOD` / `MC_SKILLS_CONTROL_METHOD`).
 - **Tool catalog & policy**: usage analytics per tool (call counts, success rate, average
   duration) derived from mission history, plus a per-agent-per-tool allow/ask/deny policy
   editor.
@@ -161,7 +173,10 @@ consider setting `MC_AUTH_USERS` too, once you're granting real write access).
 - `graph.js`: server-side graph state (including token accumulation and SLA tracking), so a reloaded browser gets the current map immediately
 - `store.js`: per-mission op history on disk (no database — see `plan.md`'s Phase 1 notes)
 - `auth.js` / `audit.js`: login sessions and the audit trail
+- `deviceid.js`: the Ed25519 device identity and the signed `connect.challenge` proof used at
+  handshake time (see [First-run checklist](#first-run-checklist))
 - `toolstats.js` / `toolpolicy.js`: tool usage analytics and the per-agent-per-tool policy store
+- `skills.js`: the skills catalog mirror (`data/skills.json`) behind the Skills panel
 - `budget.js` / `pricing.json`: token budget thresholds and the cost-estimate table
 - `webhook.js`: outbound webhook config parsing and delivery
 - `circuitbreaker.js` / `log.js`: reconnect backoff and structured logging

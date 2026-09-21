@@ -51,8 +51,16 @@ Gateway doesn't implement it.
 | Method | Path | Role | Notes |
 |---|---|---|---|
 | POST | `/api/agent/:id/control` | admin | **(placeholder RPC)** Body `{action: "start"\|"stop"\|"restart"\|"pause"\|"resume"}`. |
-| POST | `/api/agent/:id/config` | admin | **(placeholder RPC)** Body `{config: {...}}` — arbitrary JSON pushed toward the Gateway. |
+| POST | `/api/agent/:id/config` | admin | **(placeholder RPC)** Body `{config: {...}}` — the model/limits/budget/skills object built by the agent-config form, pushed toward the Gateway. Identity is split into `agentMd` (role, responsibilities, operating instructions) and `soulMd` (personality, voice, tone), mirroring OpenClaw's own `agent.md`/`soul.md` convention. |
 | POST | `/api/agent/spawn` | admin | **(placeholder RPC)** Body `{agentId, prompt}` — spawn an ad-hoc sub-agent. |
+
+## Skills
+
+| Method | Path | Role | Notes |
+|---|---|---|---|
+| GET | `/api/skills` | viewer | The skill catalog, mirrored locally in `data/skills.json` (seeded with defaults; merged from `skills.changed` frames). |
+| POST | `/api/skills/install` | admin | **(placeholder RPC)** Body `{name, source?}` — install a skill and mirror it locally regardless of whether the Gateway push succeeds. |
+| POST | `/api/skills/:name/control` | admin | **(placeholder RPC)** Body `{action: "enable"\|"disable"\|"update"\|"remove"}` — mirrored locally either way (`rpcError` in the response when the Gateway rejects it). |
 
 ## Tools
 
