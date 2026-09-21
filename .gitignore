@@ -7,3 +7,4 @@ data/
 mission-control-backup-*.tar.gz
 plan.md
 features.md
+.github/workflows/ci.yml
