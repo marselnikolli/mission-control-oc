@@ -92,6 +92,23 @@ describe('createNormalizer', () => {
     assert.ok(ops.some(o => o.op === 'subscribe' && o.key === 'agent:sysadmin:1'));
   });
 
+  test('a session spawned by another session is reported as a sub-agent node', () => {
+    const normalize = createNormalizer({ agents });
+    const ops = normalize('sessions.changed', {
+      sessions: [{ key: 'agent:sysadmin:2', agentId: 'sysadmin', spawnedBy: 'agent:main:1', hasActiveRun: true }],
+    });
+    const node = ops.find(o => o.op === 'upsert' && o.node.id === 'agent:sysadmin').node;
+    assert.equal(node.kind, 'subagent');
+    assert.equal(node.parent, 'agent:main');
+  });
+
+  test('a session with no spawning parent stays a full agent', () => {
+    const normalize = createNormalizer({ agents });
+    const ops = normalize('sessions.changed', { sessions: [{ key: 'agent:devops:1', agentId: 'devops', hasActiveRun: true }] });
+    const node = ops.find(o => o.op === 'upsert' && o.node.id === 'agent:devops').node;
+    assert.equal(node.kind, 'agent');
+  });
+
   test('a tool start event creates an executing tool node under its agent', () => {
     const normalize = createNormalizer({ agents });
     const ops = normalize('session.tool', {

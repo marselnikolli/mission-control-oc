@@ -3,16 +3,20 @@
 // the Skills panel and the per-agent config form work even against a Gateway that doesn't
 // report a catalog yet. RPC calls for install/update/remove are unverified placeholders (same
 // caveat as the agent RPCs) -- the local record is kept either way so the UI stays consistent.
+//
+// The seed catalog is the org chart's own skill set, transcribed in org.js: one department per
+// agent on the roster, and every skill that department installs. A Gateway frame merges on top of
+// it, so a live Gateway still wins; the chart is what the panel shows before one connects.
 import fs from 'node:fs';
 import path from 'node:path';
+import { ORG_SKILLS } from './org.js';
 
-export const DEFAULT_SKILLS = [
-  { name: 'file-ops', version: '1.0.0', status: 'installed', enabled: true, source: 'builtin', description: 'Read, write, list, and organize files via the filesystem toolset.' },
-  { name: 'web-fetch', version: '1.2.0', status: 'installed', enabled: true, source: 'builtin', description: 'Fetch pages and APIs and feed their content back to the model.' },
-  { name: 'shell-exec', version: '1.1.0', status: 'installed', enabled: true, source: 'builtin', description: 'Run shell commands and scripts inside the workspace sandbox.' },
-  { name: 'memory', version: '0.9.4', status: 'installed', enabled: true, source: 'builtin', description: 'Long-term key/value recall shared across agent sessions.' },
-  { name: 'web-search', version: '2.0.1', status: 'available', enabled: false, source: 'registry', description: 'Live web search skill (not installed yet).' },
-];
+export const DEFAULT_SKILLS = ORG_SKILLS;
+
+// Fields the org chart carries that a Gateway may not report. They describe where a skill came from
+// (department, its SKILL.md, the authorities it checks against) rather than its install state, so
+// they survive a merge only from the org seed and are otherwise left alone.
+const ORG_FIELDS = ['department', 'departmentTitle', 'trigger', 'url', 'sources'];
 
 // Accepts the catalog shapes Gateways tend to emit: a bare array, { skills: [] },
 // { list: [] }, { catalog: [] }, { data: [] }, or the same arrays wrapped one level deeper
@@ -50,15 +54,20 @@ export function createSkillsStore({ dir, seed = DEFAULT_SKILLS } = {}) {
   function set(skill) {
     if (!skill || !skill.name) return;
     const prev = skills.get(skill.name) || {};
-    skills.set(String(skill.name), {
+    const next = {
       name: String(skill.name),
       version: skill.version ?? prev.version ?? '1.0.0',
       status: skill.status ?? prev.status ?? 'installed',
       enabled: skill.enabled ?? (prev.enabled !== undefined ? prev.enabled : true),
-      source: skill.source ?? prev.source ?? 'builtin',
+      source: skill.source ?? prev.source ?? 'headcount',
       description: skill.description ?? prev.description ?? '',
       ...(skill.updatedAt ? { updatedAt: skill.updatedAt } : {}),
-    });
+    };
+    for (const f of ORG_FIELDS) {
+      const v = skill[f] ?? prev[f];
+      if (v !== undefined) next[f] = v;
+    }
+    skills.set(String(skill.name), next);
   }
 
   load();

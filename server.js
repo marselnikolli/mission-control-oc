@@ -17,6 +17,7 @@ import { estimateCost, budgetStatus } from './budget.js';
 import { parseWebhooks, fireWebhook } from './webhook.js';
 import { loadOrCreateDeviceIdentity, buildDeviceProof } from './deviceid.js';
 import { createSkillsStore } from './skills.js';
+import { ORG_AGENTS } from './org.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,7 +47,11 @@ const cfg = {
   token: process.env.OPENCLAW_GATEWAY_TOKEN || '',
   host: process.env.MC_HOST || '127.0.0.1',
   port: Number(process.env.MC_PORT || 4400),
-  agents: (process.env.MC_AGENTS || 'main,sysadmin,devops,security').split(',').map(s => s.trim()).filter(Boolean),
+  // The roster is the org chart's departments, in the chart's own order: ORG_AGENTS[0] ("executive",
+  // the Office of the CEO) orchestrates and the other fifteen report to it. MC_AGENTS overrides it.
+  agents: (process.env.MC_AGENTS || ORG_AGENTS.join(',')).split(',').map(s => s.trim()).filter(Boolean),
+  // Optional squad of sub-agents under every agent that reports to the orchestrator (0 = off).
+  subagentsPerAgent: Math.max(0, Math.floor(Number(process.env.MC_SUBAGENTS_PER_AGENT) || 0)),
   clientId: process.env.MC_CLIENT_ID || 'cli',
   clientMode: process.env.MC_CLIENT_MODE || 'cli',
   approvals: process.env.MC_ENABLE_APPROVALS === '1',
@@ -92,7 +97,7 @@ const cfg = {
 cfg.webhooks = parseWebhooks(process.env.MC_WEBHOOKS);
 fs.mkdirSync(path.dirname(cfg.rawLog), { recursive: true });
 
-const graph = createGraph({ agents: cfg.agents });
+const graph = createGraph({ agents: cfg.agents, subagentsPerAgent: cfg.subagentsPerAgent });
 const normalize = createNormalizer({ agents: cfg.agents });
 const store = createStore({ dir: cfg.dataDir });
 const auth = createAuth({ users: cfg.authUsers });
@@ -123,6 +128,15 @@ const SESSION_COOKIE = 'mc_session';
 const clients = new Set();
 let gatewayStatus = 'connecting';
 let currentMissionId = null;
+
+// Vendored frontend libraries, served only from this explicit route -> file allowlist (see the
+// /vendor/ handler below). Pico CSS is the structural layer the dashboard's panels, tables and
+// forms are built on; GSAP drives the map's camera and count-ups; anime.js drives the SVG dataflow.
+const VENDOR_LIBS = new Map([
+  ['/vendor/pico.min.css', { file: 'pico.min.css', type: 'text/css; charset=utf-8' }],
+  ['/vendor/gsap.min.js', { file: 'gsap.min.js', type: 'text/javascript; charset=utf-8' }],
+  ['/vendor/anime.min.js', { file: 'anime.min.js', type: 'text/javascript; charset=utf-8' }],
+]);
 
 if (!authEnabled) log.warn('MC_AUTH_USERS is empty — Mission Control is open to anyone who can reach it.');
 
@@ -368,9 +382,10 @@ const server = http.createServer(async (req, res) => {
 
   // Vendored frontend libs -- an explicit allowlist, not a generic static server, so this
   // route can't be tricked into reading arbitrary files via a crafted path.
-  if (url.pathname === '/vendor/gsap.min.js') {
-    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=31536000, immutable' });
-    return res.end(fs.readFileSync(path.join(here, 'public', 'vendor', 'gsap.min.js')));
+  const vendor = VENDOR_LIBS.get(url.pathname);
+  if (vendor) {
+    res.writeHead(200, { 'content-type': vendor.type, 'cache-control': 'public, max-age=31536000, immutable' });
+    return res.end(fs.readFileSync(path.join(here, 'public', 'vendor', vendor.file)));
   }
 
   if (url.pathname === '/api/login' && req.method === 'POST') {
@@ -711,7 +726,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(cfg.port, cfg.host, () => {
-  log.info('Mission Control listening', { host: cfg.host, port: cfg.port, agents: cfg.agents, approvals: cfg.approvals, authEnabled });
+  log.info('Mission Control listening', { host: cfg.host, port: cfg.port, agents: cfg.agents, subagentsPerAgent: cfg.subagentsPerAgent, approvals: cfg.approvals, authEnabled });
   if (!cfg.token) log.warn('OPENCLAW_GATEWAY_TOKEN is empty');
   connectGateway();
 });

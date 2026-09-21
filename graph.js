@@ -9,18 +9,31 @@ export function isOverdue(node, now = Date.now(), thresholdMs = 5 * 60 * 1000) {
   return now - node.statusSince > thresholdMs;
 }
 
-export function createGraph({ agents }) {
+// `subagentsPerAgent` gives every agent that reports to the orchestrator a small squad of named
+// sub-agents (`sysadmin-1`, `sysadmin-2`, …), parented to it. They are seeded at rest like the rest
+// of the roster, so the map shows the whole structure before a run starts and the client can render
+// each squad on its own orbit around its lead.
+export function createGraph({ agents, subagentsPerAgent = 0 }) {
   const nodes = new Map();
   let mission = { label: 'No active mission', startedAt: null };
   const log = [];
+  const squadSize = Math.max(0, Math.floor(Number(subagentsPerAgent) || 0));
 
   function seed() {
     nodes.clear();
     nodes.set('mission', { id: 'mission', kind: 'mission', label: mission.label, status: mission.startedAt ? 'thinking' : 'idle' });
-    agents.forEach((a, i) => nodes.set(`agent:${a}`, {
-      id: `agent:${a}`, kind: 'agent', label: a, status: 'idle',
-      parent: i === 0 ? 'mission' : `agent:${agents[0]}`,
-    }));
+    agents.forEach((a, i) => {
+      const parent = i === 0 ? 'mission' : `agent:${agents[0]}`;
+      nodes.set(`agent:${a}`, { id: `agent:${a}`, kind: 'agent', label: a, status: 'idle', parent });
+      // The orchestrator itself gets no squad -- it already owns every lead.
+      if (i === 0) return;
+      for (let s = 1; s <= squadSize; s++) {
+        const name = `${a}-${s}`;
+        nodes.set(`agent:${name}`, {
+          id: `agent:${name}`, kind: 'subagent', label: name, status: 'idle', parent: `agent:${a}`,
+        });
+      }
+    });
   }
   seed();
 

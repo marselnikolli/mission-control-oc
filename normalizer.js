@@ -98,7 +98,11 @@ export function createNormalizer({ agents }) {
 
       const id = nodeFor(agentId);
       const parent = parentNodeForSession(key);
-      const node = { id, kind: 'agent', parent };
+      // A session the Gateway reports as spawned by another session is a sub-agent: it keeps the
+      // smaller ring, its own orbit around its lead, and a row in the Agents table. Remembered per
+      // session, so a later update that omits spawnedBy doesn't flip it back to a full agent.
+      const isSub = !!(parentKey || sessionParent.has(key));
+      const node = { id, kind: isSub ? 'subagent' : 'agent', parent };
       if (row.model) node.model = row.model;
       if (row.hasActiveRun === true) node.status = 'thinking';
       else if (row.hasActiveRun === false) node.idleHint = true;

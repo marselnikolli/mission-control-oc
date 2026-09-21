@@ -27,6 +27,26 @@ describe('createGraph seeding', () => {
   });
 });
 
+describe('createGraph sub-agent squads', () => {
+  test('seeds N named sub-agents under every agent except the orchestrator', () => {
+    const graph = createGraph({ agents: ['main', 'sysadmin', 'devops'], subagentsPerAgent: 3 });
+    const subs = graph.snapshot().nodes.filter(n => n.kind === 'subagent');
+    assert.equal(subs.length, 6); // 2 leads x 3, none under main
+    assert.deepEqual(subs.filter(n => n.parent === 'agent:sysadmin').map(n => n.id).sort(),
+      ['agent:sysadmin-1', 'agent:sysadmin-2', 'agent:sysadmin-3']);
+    assert.ok(!subs.some(n => n.parent === 'agent:main'));
+    const one = graph.get('agent:sysadmin-2');
+    assert.equal(one.label, 'sysadmin-2');
+    assert.equal(one.status, 'idle');
+  });
+
+  test('defaults to no sub-agents and tolerates junk values', () => {
+    assert.equal(createGraph({ agents: ['main', 'sysadmin'] }).snapshot().nodes.filter(n => n.kind === 'subagent').length, 0);
+    assert.equal(createGraph({ agents: ['main', 'sysadmin'], subagentsPerAgent: 'nonsense' }).snapshot().nodes.filter(n => n.kind === 'subagent').length, 0);
+    assert.equal(createGraph({ agents: ['main', 'sysadmin'], subagentsPerAgent: -2 }).snapshot().nodes.filter(n => n.kind === 'subagent').length, 0);
+  });
+});
+
 describe('graph.apply mission op', () => {
   test('starting a mission clears tool/approval nodes and marks the mission thinking', () => {
     const graph = createGraph({ agents: ['main'] });

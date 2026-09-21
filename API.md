@@ -58,7 +58,7 @@ Gateway doesn't implement it.
 
 | Method | Path | Role | Notes |
 |---|---|---|---|
-| GET | `/api/skills` | viewer | The skill catalog, mirrored locally in `data/skills.json` (seeded with defaults; merged from `skills.changed` frames). |
+| GET | `/api/skills` | viewer | The skill catalog, mirrored locally in `data/skills.json` (seeded from the org chart in `org.js`, merged from `skills.changed` frames). Each row carries its department, `SKILL.md` link and source count alongside the install state. |
 | POST | `/api/skills/install` | admin | **(placeholder RPC)** Body `{name, source?}` — install a skill and mirror it locally regardless of whether the Gateway push succeeds. |
 | POST | `/api/skills/:name/control` | admin | **(placeholder RPC)** Body `{action: "enable"\|"disable"\|"update"\|"remove"}` — mirrored locally either way (`rpcError` in the response when the Gateway rejects it). |
 

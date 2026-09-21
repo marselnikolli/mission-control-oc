@@ -5,45 +5,98 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mission Control — Sign in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Same structural layer, palette and theme choice as the dashboard, so signing in doesn't feel
+     like a different app. The dashboard's theme toggle persists to localStorage; honour it here
+     before first paint instead of guessing from the OS. -->
+<script>
+  try { const t = localStorage.getItem('mc_theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="/vendor/pico.min.css">
 <style>
-  :root {
-    --bg: #070f18; --card: #101f2e; --card-hi: #16293b; --line: #24405a;
-    --ink: #e4edf4; --muted: #83a0b5; --faint: #4d6477;
-    --thinking: #5ecdf2; --executing: #b39bff; --error: #ff7a68;
-    --sans: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  /* Tokens are the dashboard's (see public/index.html): one soft console, one palette. Only the
+     handful of surfaces this page actually uses are declared here. */
+  :root:root {
+    --bg: #302e3c; --bg-2: #3a3846; --card: #423f4f; --card-hi: #4e4a5c; --tile: #4a4655; --tile-hi: #58525f;
+    --line: rgba(255,255,255,.075); --line-2: rgba(255,255,255,.14);
+    --ink: #f7f5fb; --muted: #bdb7cb; --faint: #948da8;
+    --accent: #9aa4ff; --accent-ink: #171a33; --error: #dd6672;
+    --r-lg: 22px; --r-md: 16px; --r-pill: 999px;
+    --shadow: 0 10px 30px -22px rgba(0,0,0,.9);
+    --sans: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --display: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    /* Pico bridge (see index.html): Pico supplies structure, these tokens supply the skin.
+       `:root:root` below outranks Pico's own light/dark token blocks. */
+    --pico-font-family: var(--sans);
+    --pico-font-family-monospace: var(--mono);
+    --pico-border-radius: var(--r-md);
+    --pico-background-color: var(--bg);
+    --pico-color: var(--ink);
+    --pico-muted-color: var(--muted);
+    --pico-muted-border-color: var(--line);
+    --pico-primary: var(--accent);
+    --pico-primary-background: var(--accent);
+    --pico-primary-border: var(--accent);
+    --pico-primary-hover: var(--accent);
+    --pico-primary-hover-background: color-mix(in srgb, var(--accent) 86%, #000);
+    --pico-primary-hover-border: color-mix(in srgb, var(--accent) 86%, #000);
+    --pico-primary-inverse: var(--accent-ink);
+    --pico-form-element-background-color: var(--bg-2);
+    --pico-form-element-border-color: var(--line);
+    --pico-form-element-color: var(--ink);
+    --pico-form-element-active-border-color: var(--accent);
+    --pico-form-element-focus-color: color-mix(in srgb, var(--accent) 20%, transparent);
   }
   @media (prefers-color-scheme: light) {
-    :root { --bg: #eef2f5; --card: #ffffff; --card-hi: #f6f9fb; --line: #bccad6;
-      --ink: #15232f; --muted: #57697a; --faint: #93a4b3;
-      --thinking: #1f8fb3; --executing: #6b55d6; --error: #c9443a; }
+    :root:not([data-theme="dark"]) {
+      --bg: #e9eaf2; --bg-2: #f2f3f8; --card: #ffffff; --card-hi: #f5f6fb; --tile: #eff0f7; --tile-hi: #e4e6f1;
+      --line: rgba(24,28,58,.10); --line-2: rgba(24,28,58,.18);
+      --ink: #1a1d2e; --muted: #5b6079; --faint: #7c819a;
+      --accent: #5560d8; --accent-ink: #ffffff; --error: #b83545;
+      --shadow: 0 12px 28px -24px rgba(28,34,80,.7);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #e9eaf2; --bg-2: #f2f3f8; --card: #ffffff; --card-hi: #f5f6fb; --tile: #eff0f7; --tile-hi: #e4e6f1;
+    --line: rgba(24,28,58,.10); --line-2: rgba(24,28,58,.18);
+    --ink: #1a1d2e; --muted: #5b6079; --faint: #7c819a;
+    --accent: #5560d8; --accent-ink: #ffffff; --error: #b83545;
+    --shadow: 0 12px 28px -24px rgba(28,34,80,.7);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); }
   body {
     display: flex; align-items: center; justify-content: center; padding: 20px;
-    background-image: radial-gradient(color-mix(in srgb, var(--thinking) 30%, transparent) 1px, transparent 1px);
-    background-size: 26px 26px;
+    /* The same single wash of accent the dashboard lays over its page. */
+    background-image: radial-gradient(ellipse 110% 70% at 50% -20%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 72%);
+    background-attachment: fixed;
   }
-  button:focus-visible, input:focus-visible { outline: 2px solid var(--thinking); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .card {
-    width: 100%; max-width: 340px;
-    background: radial-gradient(140% 160% at 15% -10%, var(--card-hi), var(--card));
-    border: 1px solid var(--line); border-radius: 26px; padding: 26px 24px;
-    box-shadow: 0 0 0 1px rgba(94,205,242,.06), 0 24px 60px -24px rgba(0,0,0,.7), 0 0 40px -20px var(--thinking);
+    position: relative; width: 100%; max-width: 380px;
+    background: var(--card);
+    border: 1px solid var(--line); border-radius: var(--r-lg); padding: 28px 26px;
+    box-shadow: var(--shadow), 0 30px 70px -40px rgba(0,0,0,.8);
     backdrop-filter: blur(8px);
   }
-  .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; margin-bottom: 20px; }
-  .brand .logo { width: 26px; height: 26px; border-radius: 50%; flex: none; background: linear-gradient(135deg, var(--thinking), var(--executing)); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; box-shadow: 0 0 18px -2px var(--thinking); }
-  h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
-  label { display: block; font-size: 12px; color: var(--muted); margin: 14px 0 4px; }
-  input { width: 100%; padding: 9px 12px; border-radius: 14px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; }
-  input:focus { border-color: var(--thinking); }
-  button { margin-top: 20px; width: 100%; padding: 9px 0; border-radius: 999px; border: 1px solid transparent; background: linear-gradient(135deg, var(--thinking), var(--executing)); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
-  button:hover { filter: brightness(1.06); }
-  button[disabled] { opacity: .5; cursor: default; filter: none; }
-  #err { color: var(--error); font-size: 13px; margin-top: 12px; min-height: 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 14px; margin-bottom: 22px; }
+  .brand .logo { width: 30px; height: 30px; border-radius: 10px; flex: none; background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--ink))); display: inline-flex; align-items: center; justify-content: center; color: var(--accent-ink); font-size: 15px; }
+  h1 { font-size: 18px; font-weight: 800; letter-spacing: -.01em; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+  label { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); margin: 14px 0 6px; }
+  input { width: 100%; padding: 10px 13px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg-2); color: var(--ink); font-family: var(--mono); font-size: 13px; margin-bottom: 0; }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); outline: none; }
+  button {
+    margin-top: 22px; width: 100%; padding: 11px 0; border-radius: var(--r-pill);
+    border: 1px solid transparent; background: var(--accent); color: var(--accent-ink);
+    font-family: var(--sans); font-size: 13.5px; font-weight: 800; cursor: pointer;
+    transition: background .16s, transform .12s;
+  }
+  button:hover { background: color-mix(in srgb, var(--accent) 86%, #000); }
+  button:active { transform: translateY(1px); }
+  button[disabled] { opacity: .5; cursor: default; }
+  #err { color: var(--error); font-family: var(--mono); font-size: 12px; margin-top: 14px; min-height: 16px; }
 </style>
 </head>
 <body>

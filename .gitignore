@@ -2,6 +2,8 @@ node_modules/
 .env
 logs/*.jsonl
 data/
+# local UI verification artifacts (headless-Chrome profiles and screenshots)
+.mcuishot/
 mission-control-backup-*.tar.gz
 plan.md
 features.md

@@ -82,8 +82,13 @@ ssh -L 4400:127.0.0.1:4400 you@your-vps
 
 Don't expose port 4400 publicly: anyone who can load the page sees your agents' commands, and
 (if you've opted into `MC_AUTH_USERS`) only a login stands between them and the admin actions.
-Open `index.html?demo`, or click the **Demo** button in the header, to see scripted demo data
-instead of live data.
+Open `index.html?demo`, or click the **Demo** button in the header, to run the scripted demo mission
+instead of live data — **"Take the new Pro tier from proposal to launch"**, a ~50s loop in which every
+role does real work: corporate-strategy sizes the market, finance clears the unit economics, product
+writes the spec, technology builds (fails on a stale lockfile, recovers, and spawns a canary sub-agent
+on its own orbit), marketing drafts the launch copy, security finds the CVE that the one approval
+patches, and legal-risk clears the terms amendment before the tier ships. Approve to watch it finish,
+reject to see the mission stop cleanly, then it loops.
 
 ## First-run checklist
 
@@ -102,19 +107,72 @@ instead of live data.
    matching `pick(...)` call in `normalizer.js`. That file is the only place that knows about the Gateway's shapes.
 3. **Pin your OpenClaw version** once it works, and recheck the log after upgrades.
 
+## The roster and the skill catalog
+
+Both come from one place: **the org chart** — [cbrock84/headcount](https://github.com/cbrock84/headcount),
+published at <https://cbrock84.github.io/headcount/org-chart.html> and transcribed verbatim into
+`org.js`. Nothing in it is invented or paraphrased.
+
+- **The roster** is that chart's sixteen departments, in the chart's own order. `executive` (the
+  Office of the CEO) is `agents[0]` and orchestrates; the other fifteen report to it. That is also
+  where the chart hangs its two **reviewer-class** departments, `security` and `legal-risk`, since
+  their blocking findings are not overrulable by the department under review.
+- **The skill catalog** is that chart's skill set — every skill a department installs, seeded
+  `installed` and `enabled`, tagged with the department it comes from, a link to its `SKILL.md`, and
+  how many outside authorities it checks against. The Skills panel shows all of it with a filter box.
+- **`MC_AGENTS` overrides the roster** if you want your own. Leaving it unset uses the chart's.
+- A Gateway that reports its own `skills.changed` catalog still merges on top of the seed, so a live
+  Gateway wins over the chart.
+
 ## What maps to what
+
+The map always shows **the whole roster** — every configured agent (plus anyone the Gateway reports)
+keeps its node whether it is running, idle, waiting or finished, so the canvas is a stable picture of
+your setup instead of one that empties out between runs. What changes is motion: **only an agent that
+is actually working animates.** A running agent's node lights up in its own colour, a snake of light
+runs the branch from its parent to it, and its name and current tool call are written out beside it.
+Everything else sits still; a finished agent keeps the lit "unlocked" look, a quiet one recedes, and
+an approval paints its ring amber until you answer it.
+
+The map is a **skill tree**: the orchestrator is the root node at the centre and every agent it reports
+to is a skill on a ring around it, evenly spaced with its name and live status written outward from
+the node. Each lead's sub-agents **fork off their own lead** as a branch, fanned across that lead's
+sector, so the delegation tree reads as one tree rather than a flat ring of two dozen nodes. Each node
+carries a sharp line glyph for its department, taken from the org chart itself (a bank for finance, a
+shield for security, scales for legal-risk, a rising line for revenue, and so on) — the same glyph set
+appears in the Agents table.
+
+Only a working agent animates: its disk fills with its identity colour, an energy arc sweeps the ring,
+the ring breathes, an arrival ping fires when the signal snake reaches it, and the branch itself lights
+up with a travelling head. Idle agents sit still and dim; a finished agent stays lit as an unlocked
+node; an approval turns the ring amber; a failure turns it red. The root throws a ripple outward when
+work is delegated, and the whole tree assembles itself on connect — root first, then every lead
+clockwise, each lead's branches following their parent (`i` replays it).
+
+Names are progressive disclosure, the way the reference panel does it: a name is shown for the root,
+for any agent that is running, waiting or failed, and for whatever you select or point at. Fifteen
+leads on a ring leave roughly 90px of arc each once the tree is fitted to the stage, so a name on every
+node would be an unreadable smear — the full roster is one click away in the Agents table.
+
+Tool calls and approvals are never cards on the canvas. They surface as the live caption, in the
+**Selected** panel's task list (Approve/Reject and **Full output** live there), and in the Activity
+feed, which can be filtered by kind (Delegation / Tools / Approvals / Errors).
 
 | Gateway event | On the map |
 |---|---|
 | `session.message` (user, in main) | New mission, map resets, replay recording starts |
-| `sessions.changed` with `spawnedBy` / `parentSessionKey` | Agent attaches under whoever delegated to it, delegation particle |
-| `agent` lifecycle start / end / error | Agent status: thinking, done, failed |
-| `session.tool` start / end | Tool card under the agent, exec and result particles |
-| `exec.approval.*`, `session.approval` | Amber approval card |
+| `sessions.changed` with `spawnedBy` / `parentSessionKey` | Agent attaches under whoever delegated to it, delegation burst |
+| `agent` lifecycle start / end / error | Running: signal snake on its branch + caption. Done: lit as an unlocked node. Error: red ring |
+| `session.tool` start / end | Outbound burst when the call starts, inbound + caption update when it ends |
+| `exec.approval.*`, `session.approval` | The agent's node gets an amber ring; Approve/Reject in its task panel |
 | `chat` with `state: "error"` | Agent turns red with the error |
 
-Each agent keeps its 6 most recent tool/approval cards; older finished ones drop off (they're
-still in mission history — see below).
+An agent's task panel (Selected, right-hand side) lists what is waiting on you first, then its 6
+most recent tool/approval records; older finished ones drop off (they're still in mission history —
+see below).
+
+With nothing selected the same panel shows **Live now**: who is running or waiting, what they are
+doing, and a click straight through to their full task list.
 
 An event Mission Control doesn't recognize is counted and logged instead of silently vanishing
 (the **Health** panel calls this "protocol drift" — it means a Gateway version bump added or
@@ -137,11 +195,21 @@ the route.
   chain, and token usage, with Stop/Restart/Pause/Resume, ad-hoc spawn, and a **proper config
   form** (model, temperature, max tokens/retries/timeout, system prompt, per-run token cap,
   skill assignment, plus a raw-JSON escape hatch for anything not covered).
-- **Skills catalog** (admin): a panel listing each skill's version, status, and source with
-  Install / Enable / Disable / Update / Remove, plus the same set in the agent-config form.
-  The catalog is mirrored in `data/skills.json` — seeded with defaults, merged from the
-  Gateway's `skills.changed` frames, and kept locally even if the Gateway doesn't implement
-  the placeholder RPCs (`MC_SKILLS_INSTALL_METHOD` / `MC_SKILLS_CONTROL_METHOD`).
+- **Sub-agent squads** (`MC_SUBAGENTS_PER_AGENT`): give every agent except the orchestrator a squad
+  of N named sub-agents (`technology-1`, `technology-2`, …) parented to it. **They stay off the map until
+  they are needed**: a squad member appears while it is working (or waiting on an approval, or
+  failed) and leaves again when it finishes, and clicking a lead — or its `▸ N` chip — pins the whole
+  squad open around it on its own branch. So the canvas stays readable with a big roster instead
+  of turning into two dozen idle nodes. Each member wears its lead's role glyph; the Agents table
+  lists them all, nested under that lead and tagged `sub`; and selecting a lead shows a **Squad**
+  section plus its squad's tool calls, tagged with which sub-agent ran each one. Squad members the
+  Gateway spawns at runtime (`spawnedBy`/`parentSessionKey`) get the same treatment automatically.
+- **Skills catalog** (admin): a panel listing each skill's department, version, status, source and
+  description with Install / Enable / Disable / Update / Remove, a filter box, and the same set in the
+  agent-config form. The catalog is mirrored in `data/skills.json` — seeded from `org.js` (the org
+  chart's own skill set), merged from the Gateway's `skills.changed` frames, and kept locally even if
+  the Gateway doesn't implement the placeholder RPCs (`MC_SKILLS_INSTALL_METHOD` /
+  `MC_SKILLS_CONTROL_METHOD`).
 - **Tool catalog & policy**: usage analytics per tool (call counts, success rate, average
   duration) derived from mission history, plus a per-agent-per-tool allow/ask/deny policy
   editor.
@@ -151,8 +219,42 @@ the route.
   `mission.start`, `approval.waiting`, or `agent.error`.
 - **CLI companion**: `bin/mc-cli.js status|tasks|approve <id>|reject <id>` against the same API.
 - **Backup**: `bin/mc-backup.sh` tars the plain-file store — there's no database to dump.
-- Search/filter, collapse/expand long agent subtrees, desktop notifications, a theme toggle,
-  and keyboard shortcuts (`g` recenter, `y`/`n` approve/reject, `m` toggle demo) round out the UI.
+- Search/filter, a state legend, kind filters on the activity feed, and keyboard-first navigation
+  (collapse/expand subtrees, desktop notifications, a theme toggle, and `g` recenter, `y`/`n`
+  approve/reject, `m` toggle demo, `v` map/list on a phone) round out the UI. The camera re-fits
+  smoothly with GSAP, which also animates the HUD counts; anime.js runs the edge dataflow and event
+  bursts.
+- **Discoverable map detail.** Agents are drawn as icon-only rings, so everything the map knows
+  about one — status, detail, model, reports-to, children, last tool call — is on a **hover/focus
+  card** (the same rows the inspector shows), instead of a `title` attribute that needed a mouse,
+  a dwell, and did not exist for keyboard or touch users at all. A running agent also reveals its
+  task line on hover.
+- **The mission instrument in the hub.** The centre of the diagram used to be ~500px of decoration
+  ring around an orb carrying only the word "EXECUTIVE". It now carries the mission clock, agents
+  running, tool calls in flight, approvals waiting (amber when non-zero) and a one-line "what is
+  running now", all refreshed on a ticker rather than only when an event arrives.
+- **An approval bar, not a feed row.** A pending approval used to be a row in the scrolling activity
+  feed plus a card inside a panel you had to open. One sticky strip now appears whenever something
+  is actually waiting on a human, with the command, **Show agent**, and Approve/Reject — and it is
+  hidden entirely when nothing is waiting.
+- **A quieter activity feed.** Consecutive same-agent events of the same kind collapse into one row
+  with a `+N` chip that expands, and the fixed 58px clock column became a relative "now / 12s / 3m"
+  (the exact timestamp stays in the `title`). Five identical tool results are one line, not five.
+- **Phone layout.** Under 700px the map is opt-in: the default is the list you can actually read
+  (status, agents, feed) in a single scroll with no nested scroll regions, and a **Map / List**
+  button (or `v`) swaps to the diagram. The diagram also scales its own geometry down on a narrow
+  stage and its fit no longer floors the zoom above what the height-fit wants, so the whole roster
+  lands inside the stage instead of the outer departments falling off the bottom. The header became
+  two rows — title, then a scrolling button strip — rather than wrapping to four lines.
+- **Soft-console skin** over Pico CSS: every view (history, tasks, agents, tools, skills, health,
+  audit) is built from Pico's tables, forms and cards, re-skinned through Pico's own custom
+  properties — a muted violet page, softly rounded cards and pills, a glyph in a tinted chip on each
+  section heading, saturated accent pills for status, one rounded type family (`Nunito`) with a
+  monospace reserved for machine data, and a sidebar status readout (agents / tasks / gateway) that
+  is visible from every view. The map is the one exception: it borrows a game skill tree's language —
+  luminous nodes on a near-black starfield — and keeps its own surface tokens so it reads as a
+  viewport into the tree rather than a page. "Ice" light mode is a deliberate cool-paper variant,
+  including an inverted (paper-on-indigo) skill tree rather than a hole punched in a light layout.
 
 ## Approvals (off by default)
 
@@ -176,11 +278,16 @@ consider setting `MC_AUTH_USERS` too, once you're granting real write access).
 - `deviceid.js`: the Ed25519 device identity and the signed `connect.challenge` proof used at
   handshake time (see [First-run checklist](#first-run-checklist))
 - `toolstats.js` / `toolpolicy.js`: tool usage analytics and the per-agent-per-tool policy store
+- `org.js`: the org chart (cbrock84/headcount, MIT) transcribed verbatim — the sixteen departments that
+  make up the default roster and the full skill catalog the Skills panel seeds from
 - `skills.js`: the skills catalog mirror (`data/skills.json`) behind the Skills panel
 - `budget.js` / `pricing.json`: token budget thresholds and the cost-estimate table
 - `webhook.js`: outbound webhook config parsing and delivery
 - `circuitbreaker.js` / `log.js`: reconnect backoff and structured logging
 - `public/index.html`: the whole UI, no build step; also contains the demo script
+- `public/vendor/`: the three frontend libraries, served from an explicit filename allowlist in
+  `server.js` — **Pico CSS** is the dashboard's structural layer (panels, tables, forms), **GSAP**
+  drives the map camera and HUD count-ups, **anime.js** drives the SVG dataflow
 - `public/login.html`: the sign-in page, served when `MC_AUTH_USERS` is set
 - `bin/mc-cli.js`, `bin/mc-backup.sh`, `bin/mc-gateway-token.sh`: the CLI companion, backup
   script, and the deploy-time token resolver/provisioner
