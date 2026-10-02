@@ -43,6 +43,14 @@ describe('textOf', () => {
   });
 });
 
+describe('usageOf', () => {
+  test('pulls token counts from the common usage shapes Gateway emits', () => {
+    assert.deepEqual(usageOf({ usage: { inputTokens: 12, outputTokens: 34 } }), { tokensIn: 12, tokensOut: 34 });
+    assert.deepEqual(usageOf({ result: { usage: { prompt_tokens: 9, completion_tokens: 11 } } }), { tokensIn: 9, tokensOut: 11 });
+    assert.equal(usageOf({ usage: { foo: 'bar' } }), null);
+  });
+});
+
 describe('KNOWN_EVENTS', () => {
   test('lists every event name the switch in normalize() actually handles', () => {
     for (const name of ['sessions.snapshot', 'session.tool', 'chat', 'exec.approval.resolved']) {
